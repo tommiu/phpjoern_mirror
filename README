@@ -1,0 +1,57 @@
+1. Installation
+---------------
+
+We need a working installation of PHP7 (under development) with the
+php-ast extension by nikic.
+
+This goes somethink like this (to install into $HOME/php7):
+
+$ mkdir ~/php7
+$ cd ~/php7
+$ git clone https://git.php.net/repository/php-src.git
+$ cd php-src/ext
+$ git clone https://github.com/nikic/php-ast.git ast
+$ cd ..
+$ ./buildconf
+$ ./configure --prefix=$HOME/php7/usr --with-config-file-path=$HOME/php7/usr/etc --enable-ast
+$ make
+$ make install
+
+
+2. Using the parser
+-------------------
+
+The parser is implemented in PHP in the file Parser.php. It takes as
+argument either a PHP file or a directory. If it is a directory, the
+parser will search for all PHP files in the given directory and
+generate an AST for each of them.
+
+For convenience (i.e., command-line lazyness), there is a bash script
+called parser that will execute the PHP interpreter on the file
+Parser.php and pass along any arguments. The variable PHP7 needs to be
+set in the script to point to the location of the php executable from
+PHP7.
+
+Example usage:
+
+$ ./parser test-own/42.php
+
+This creates a directory .php-joern/ in the current working directory
+and dumps the AST into .php-joern/42.php/ast.dump
+
+If given a directory, the parser will create a file for each PHP file
+that it finds and create directories in .php-joern/ accordingly. The
+underlying directory structure of the parsed directory is also
+reflected.
+
+
+3. Obtaining test repositories
+------------------------------
+
+The script ./get_test_repos.sh will obtain various well-known and/or
+Github-trending PHP projects via git, and put them in a newly created
+directory test-repos/
+
+Simply call it like so:
+
+$ ./get_test_repos.sh

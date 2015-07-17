@@ -1,0 +1,7 @@
+#!/bin/bash
+
+PHP7=$HOME/bin/php
+#PHP7=$HOME/php7/usr/bin/php
+
+$PHP7 --file ./Parser.php "$@"
+
