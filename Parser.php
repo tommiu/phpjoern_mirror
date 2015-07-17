@@ -7,10 +7,13 @@
  * @author Malte Skoruppa <skoruppa@cs.uni-saarland.de>
  */
 
-require 'util.php'; // for ast_dump()
+require 'csvexport.php'; // for ast_csv_export()
+// require 'util.php'; // for ast_dump()
 
 $path = NULL; // file/folder to be parsed
-$outdir = '.php-joern'; // output folder for analysis
+// $outdir = '.php-joern'; // output folder for analysis
+$nodefile = 'nodes.csv';
+$relfile = 'rels.csv';
 
 /**
  * Parses the cli arguments.
@@ -115,12 +118,15 @@ else {
 // let's save all the errors for now -- use stderr later
 $ERRORS == '';
 
+// not needed any longer -- we save everything to only two files
+/*
 if( mkdir( $outdir, 0755)) {
   echo "Creating folder $outdir", PHP_EOL;
 }
 else {
   echo "Warning: Folder $outdir already exists, files may get overwritten.", PHP_EOL;
 }
+*/
 
 foreach( $sources as $source) {
 
@@ -138,7 +144,9 @@ foreach( $sources as $source) {
   }
 
   mkdir( $outdir.DIRECTORY_SEPARATOR.$filepath, 0755, true);
-  file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', ast_dump( $ast, AST_DUMP_LINENOS));
+
+  ast_csv_export( $ast, $nodefile, $relfile);
+  //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', ast_dump( $ast, AST_DUMP_LINENOS));
   //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', var_dump( $ast));
 }
 
