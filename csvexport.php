@@ -23,7 +23,7 @@ function ast_csv_export( $ast, $nodefile, $relfile) {
 /**
  * Helper function for ast_csv_export; the main work is done here.
  */
-function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0) {
+function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0, $nodeline = 0) : int {
 
   // if $ast is an AST node, print info and recurse
   if ($ast instanceof ast\Node) {
@@ -53,7 +53,7 @@ function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0) {
     foreach( $ast->children as $i => $child) {
       $nodecount++;
       fwrite( $rhandle, "$nodeindex\t$nodecount\tPARENT_OF\n");
-      $nodecount = compute_csv( $child, $nhandle, $rhandle, $nodecount);
+      $nodecount = compute_csv( $child, $nhandle, $rhandle, $nodecount, $nodeline);
     }
   }
 
@@ -63,16 +63,13 @@ function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0) {
     // TODO check when this happens and fwrite
   }
 
-  // if it is a string, print it
-  else if (is_string($ast)) {
-    //return "\"$ast\""; 
-    // TODO check when this happens and fwrite
-  }
-
   // otherwise, attempt to convert to string
+  // note: this should happen mainly for plain values
+  // (AST node children can be either other ast\Node objects or plain values)
   else {
-    //return (string) $ast;
-    // TODO check when this happens and fwrite
+    $nodetype = gettype( $ast);
+    $nodecode = (string) $ast;
+    fwrite( $nhandle, "$nodecount\t$nodetype\t$nodeline\t$nodecode\n");
   }
 
   return $nodecount;
