@@ -29,6 +29,9 @@ function ast_csv_export( $ast, $nodefile = "nodes.csv", $relfile = "rels.csv") {
  * @param $nodeline indicates the nodeline of the parent node. This is
  * necessary when $ast is a plain value, since we cannot get back from
  * a plain value to the parent node to learn the line number.
+ *
+ * @return The increased node count, i.e., $nodecount plus the number of children
+ *         and children's children etc. found in $ast
  */
 function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0, $nodeline = 0) : int {
 
