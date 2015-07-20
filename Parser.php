@@ -146,9 +146,12 @@ foreach( $sources as $source) {
   mkdir( $outdir.DIRECTORY_SEPARATOR.$filepath, 0755, true);
 
   ast_csv_export( $ast, $nodefile, $relfile);
+  //echo ast_dump( $ast);
   //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', ast_dump( $ast, AST_DUMP_LINENOS));
   //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', var_dump( $ast));
 }
 
-echo "Errors: \n";
-echo $ERRORS;
+//if( !is_empty( $ERRORS)) {
+  echo "Errors: \n";
+  echo $ERRORS;
+//}
