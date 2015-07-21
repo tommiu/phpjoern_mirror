@@ -11,8 +11,8 @@ function ast_csv_export( $ast, $nodefile = "nodes.csv", $relfile = "rels.csv") {
   $nhandle = fopen( $nodefile, "w");
   $rhandle = fopen( $relfile, "w");
 
-  fwrite( $nhandle, "index\ttype\tlineno\tcode\n");
-  fwrite( $rhandle, "start\tend\ttype\n");
+  store_node( $nhandle, "index:int", "type", "lineno:int", "code");
+  store_rel( $rhandle, "start", "end", "type");
 
   compute_csv( $ast, $nhandle, $rhandle);
 
@@ -69,12 +69,12 @@ function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0, $nodeline = 0) :
       $nodedoccomment = $ast->docComment;
     }
 
-    fwrite( $nhandle, "$nodecount\t$nodetype\t$nodeline\n");
+    store_node( $nhandle, "$nodecount", "$nodetype", "$nodeline", "");
 
-    $nodeindex = $nodecount;
+    $startnode = $nodecount;
     foreach( $ast->children as $i => $child) {
       $nodecount++;
-      fwrite( $rhandle, "$nodeindex\t$nodecount\tPARENT_OF\n");
+      store_rel( $rhandle, "$startnode", "$nodecount", "PARENT_OF");
       $nodecount = compute_csv( $child, $nhandle, $rhandle, $nodecount, $nodeline);
     }
   }
@@ -86,14 +86,14 @@ function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0, $nodeline = 0) :
   else if( is_string( $ast)) {
 
     $nodetype = gettype( $ast); // should be string
-    fwrite( $nhandle, "$nodecount\t$nodetype\t$nodeline\t\"$ast\"\n");
+    store_node( $nhandle, "$nodecount", "$nodetype", "$nodeline", "\"$ast\"");
 
     // TODO what if we consider a string that contains newlines and/or tabs and/or quotes?
     // probably screws up our nodes.csv file... (ask Fabian how he dealt with this in the past)
   }
 
   // (3) If it a plain value and more precisely null, there's no corresponding code per se, so we just print the type.
-  // The thing is that this branch is *not* relevant for statements such as, e.g.,
+  // The thing is that this branch is NOT relevant for statements such as, e.g.,
   // $n = NULL;
   // Indeed, in this case, NULL would be parsed as an AST_CONST with appropriate children (see test-own/assignments.php)
   // Rather, this branch will be taken for example for arrays, e.g.,
@@ -105,7 +105,7 @@ function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0, $nodeline = 0) :
   else if( $ast === null) {
 
     $nodetype = gettype( $ast); // should be NULL
-    fwrite( $nhandle, "$nodecount\t$nodetype\t$nodeline\t\n");
+    store_node( $nhandle, "$nodecount", "$nodetype", "$nodeline", "");
   }
 
   // (4) if it is a plain value but not a string and not null, cast to string and store the result as $nodecode
@@ -122,8 +122,36 @@ function compute_csv( $ast, $nhandle, $rhandle, $nodecount = 0, $nodeline = 0) :
 
     $nodetype = gettype( $ast);
     $nodecode = (string) $ast;
-    fwrite( $nhandle, "$nodecount\t$nodetype\t$nodeline\t$nodecode\n");
+    store_node( $nhandle, "$nodecount", "$nodetype", "$nodeline", "$nodecode");
   }
 
   return $nodecount;
 }
+
+/*
+ * Helper function to write a node to a CSV file
+ *
+ * @param nhandle Handle for the node file
+ * @param index The node index
+ * @param index The node type
+ * @param index The node's line number
+ * @param index The node code
+ */
+function store_node( $nhandle, $index, $type, $lineno, $code) {
+
+  fwrite( $nhandle, "$index\t$type\t$lineno\t$code\n");
+}
+
+/*
+ * Helper function to write a relationship to a CSV file
+ *
+ * @param rhandle Handle for the relationship file
+ * @param start The starting node's index
+ * @param end The ending node's index
+ * @param type The relationship's type
+ */
+function store_rel( $rhandle, $start, $end, $type) {
+
+  fwrite( $rhandle, "$start\t$end\t$type\n");
+}
+
