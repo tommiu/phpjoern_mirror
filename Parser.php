@@ -18,7 +18,8 @@ $relfile = 'rels.csv';
 /**
  * Parses the cli arguments.
  *
- * @return boolean
+ * @return Boolean that indicates whether the given arguments are
+ *         fine.
  */
 function parse_arguments() {
 
@@ -64,6 +65,9 @@ function print_help() {
  * returns their paths in an array.
  *
  * @param path Folder to search.
+ *
+ * @return Array of paths corresponding to the .php files within the
+ *         given folder.
  */
 function find_php_files( $path) {
 
