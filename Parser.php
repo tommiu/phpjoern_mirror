@@ -7,7 +7,7 @@
  * @author Malte Skoruppa <skoruppa@cs.uni-saarland.de>
  */
 
-require 'csvexport.php'; // for ast_csv_export()
+require 'CSVExporter.php'; // for ast_csv_export()
 // require 'util.php'; // for ast_dump()
 
 $path = NULL; // file/folder to be parsed
@@ -156,7 +156,7 @@ foreach( $sources as $source) {
   //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', var_dump( $ast));
 }
 
-//$csvexporter->__destruct();
+$csvexporter->__destruct();
 
 //if( !is_empty( $ERRORS)) {
   echo "Errors: \n";
