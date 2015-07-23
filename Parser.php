@@ -1,8 +1,7 @@
 <?php
 
 /**
- * This program looks for PHP files in a given directory and dumps ASTs into a
- * directory .php-joern/
+ * This program looks for PHP files in a given directory and dumps ASTs.
  *
  * @author Malte Skoruppa <skoruppa@cs.uni-saarland.de>
  */
@@ -11,9 +10,6 @@ require 'CSVExporter.php'; // for ast_csv_export()
 // require 'util.php'; // for ast_dump()
 
 $path = NULL; // file/folder to be parsed
-// $outdir = '.php-joern'; // output folder for analysis
-$nodefile = 'nodes.csv';
-$relfile = 'rels.csv';
 
 /**
  * Parses the cli arguments.
@@ -27,10 +23,10 @@ function parse_arguments() {
   
   if( !isset( $argv)) {
     if( false === (boolean) ini_get( 'register_argc_argv')) {
-      echo 'Error: Please enable register_argc_argv in your php.ini.';
+      error_log( '[ERROR] Please enable register_argc_argv in your php.ini.');
     }
     else {
-      echo 'Error: No $argv array available.';
+      error_log( '[ERROR] No $argv array available.');
     }
     echo PHP_EOL;
     return false;
@@ -40,7 +36,7 @@ function parse_arguments() {
   array_shift( $argv);
   
   if( count( $argv) !== 1) {
-    echo 'Error: Please specify exactly one path to be parsed.', PHP_EOL;
+    error_log( '[ERROR] Please specify exactly one path to be parsed.');
     return false;
   }
 
@@ -61,25 +57,57 @@ function print_help() {
 }
 
 /**
- * Searches for all files with extension .php in a given folder and
- * returns their paths in an array.
+ * Parses and generates an AST for a single file.
  *
- * @param path Folder to search.
- *
- * @return Array of paths corresponding to the .php files within the
- *         given folder.
+ * @param $path        Path to the file
+ * @param $cvsexporter A CSV exporter instance to use for exporting
+ *                     the AST of the parsed file.
  */
-function find_php_files( $path) {
+function parse_file( $path, $csvexporter) {
 
-  $sources = [];
+  $finfo = new SplFileInfo( $path);
+  echo "Parsing file ", $finfo->getFilename(), PHP_EOL;
+
+  try {
+    $ast = ast\parse_file( $path);
+
+    // The above may throw a ParseError. We only export to CSV if that
+    // didn't happen.
+    $csvexporter->store_filenode( $finfo->getFilename());
+    $csvexporter->export( $ast);
+    //echo ast_dump( $ast), PHP_EOL;
+  }
+  catch( ParseError $e) {
+    error_log( "[ERROR] In $path: ".$e->getMessage());
+  }
+}
+
+/**
+ * Parses and generates ASTs for all PHP files buried within a directory.
+ *
+ * @param $path        Path to the directory
+ * @param $cvsexporter A CSV exporter instance to use for exporting
+ *                     the ASTs of all parsed files.
+ */
+function parse_dir( $path, $csvexporter) {
 
   $di = new RecursiveDirectoryIterator( $path);
-  foreach( new RecursiveIteratorIterator( $di) as $filename => $file) {
-    if( $file->isFile() && $file->isReadable() && false !== strpos( $filename, '.php', strlen($filename)-strlen('.php')))
-      $sources[] = $filename;
-  }
+  $ii = new RecursiveIteratorIterator( $di);
+  $ri = new RegexIterator( $ii, '/^.+\.php$/i');
 
-  return $sources;
+  foreach( $ri as $path => $file) {
+
+    if( $file->isFile() && $file->isReadable()) {
+
+      // TODO: parse_file() will store File nodes and ASTs, great!
+      // However, we should *somehow* also reflect the directory
+      // structure, i.e., create Directory nodes here, but only for
+      // such directories which (recursively) contain .php files, and
+      // we do not want to create any Directory node twice. This will
+      // need a little bit of careful thinking.
+      parse_file( $path, $csvexporter);
+    }
+  }
 }
 
 /*
@@ -92,73 +120,22 @@ if( parse_arguments() === false) {
 
 // Check that source exists and is readable
 if( !file_exists( $path) || !is_readable( $path)) {
-
-  echo 'Error: The given path does not exist or cannot be read.', PHP_EOL;
+  error_log( '[ERROR] The given path does not exist or cannot be read.');
   exit( 1);
 }
 
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
-  if( false !== strrpos( $path, DIRECTORY_SEPARATOR)) {
-    $prefix = substr( $path, 0, strrpos( $path, DIRECTORY_SEPARATOR) + 1);
-  }
-  else {
-    $prefix = '';
-  }
-  $sources = [$path];
+  $csvexporter = new CSVExporter();
+  parse_file( $path, $csvexporter);
+  $csvexporter->__destruct();
 }
 elseif( is_dir( $path)) {
-  $prefix = $path;
-  // let's boldly assume that strlen(DIRECTORY_SEPARATOR) is 1 :p
-  if( substr( $prefix, -1) !== DIRECTORY_SEPARATOR)
-    $prefix .= DIRECTORY_SEPARATOR;
-  $sources = find_php_files( $path);
+  $csvexporter = new CSVExporter();
+  parse_dir( $path, $csvexporter);
+  $csvexporter->__destruct();
 }
 else {
-  echo 'Error: The given path is neither a regular file nor a directory.', PHP_EOL;
+  error_log( '[ERROR] The given path is neither a regular file nor a directory.');
   exit( 1);
 }
-
-// let's save all the errors for now -- use stderr later
-$ERRORS == '';
-
-// not needed any longer -- we save everything to only two files
-/*
-if( mkdir( $outdir, 0755)) {
-  echo "Creating folder $outdir", PHP_EOL;
-}
-else {
-  echo "Warning: Folder $outdir already exists, files may get overwritten.", PHP_EOL;
-}
-*/
-
-$csvexporter = new CSVExporter( $nodefile, $relfile);
-
-foreach( $sources as $source) {
-
-  $ast = null; // important: empty this at iteration start (in case an exception is thrown by ast\parse_file)
-
-  $filepath = substr( $source, strlen( $prefix));
-  echo 'Parsing file ', $filepath, PHP_EOL;
-
-  try {
-    $ast = ast\parse_file( $source);
-  }
-  catch( Error $e) {
-    $ERRORS .= "In $source: ".$e->getMessage()."\n";
-  }
-
-  // mkdir( $outdir.DIRECTORY_SEPARATOR.$filepath, 0755, true);
-
-  $csvexporter->export( $ast);
-  //echo ast_dump( $ast), PHP_EOL;
-  //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', ast_dump( $ast, AST_DUMP_LINENOS));
-  //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', var_dump( $ast));
-}
-
-$csvexporter->__destruct();
-
-//if( !is_empty( $ERRORS)) {
-  echo "Errors: \n";
-  echo $ERRORS;
-//}

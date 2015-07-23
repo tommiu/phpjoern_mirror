@@ -1,5 +1,13 @@
 <?php
 
+/**
+ * This class manages the two CSV files for exporting nodes. It
+ * iterates over ASTs, generates corresponding entries and writes
+ * these to the CSV files.
+ *
+ * @author Malte Skoruppa <skoruppa@cs.uni-saarland.de>
+ */
+
 require 'util.php';
 
 class CSVExporter {
@@ -41,9 +49,11 @@ class CSVExporter {
    * Exports a syntax tree into two CSV files as
    * described in https://github.com/jexp/batch-import/
    *
-   * @param $nodeline indicates the nodeline of the parent node. This is
-   * necessary when $ast is a plain value, since we cannot get back from
-   * a plain value to the parent node to learn the line number.
+   * @param $ast      The AST to export.
+   * @param $nodeline Indicates the nodeline of the parent node. This
+   *                  is necessary when $ast is a plain value, since
+   *                  we cannot get back from a plain value to the
+   *                  parent node to learn the line number.
    */
   public function export( $ast, $nodeline = 0) {
 
@@ -110,9 +120,9 @@ class CSVExporter {
     }
 
     // (4) if it is a plain value but not a string and not null, cast to string and store the result as $nodecode
-    // Note: I expected at first that such values may be booleans, integers, floats/doubles, arrays, objects, resources, or the null value.
+    // Note: I expected at first that such values may be booleans, integers, floats/doubles, arrays, objects, or resources.
     // However, testing this on test-own/assignments.php, I found that this branch is only taken for integers and floats/doubles;
-    // * for booleans and the null value, AST_CONST is used;
+    // * for booleans (as for the null value), AST_CONST is used;
     // * for arrays, AST_ARRAY is used;
     // * for objects and resources, which can only be instantiated via the
     //   new operator or function calls, the corresponding statement is
@@ -130,17 +140,29 @@ class CSVExporter {
   /*
    * Helper function to write a node to a CSV file and increase the node counter
    *
+   * Note on node types: there are different types of nodes:
+   * - AST_* nodes with children of their own; these can be divided in two kinds:
+   *   i. normal AST nodes
+   *   ii. declaration nodes (see https://github.com/nikic/php-ast/issues/12)
+   * - strings, for names of variables and constants, for the content
+   *   of variables, etc.
+   * - NULL nodes, for undefined nodes in the AST
+   * - integers and floats/doubles, i.e., plain types
+   * - File and Directory nodes, for files and directories,
+   *   representing the global code structure (we use store_filenode() for these)
+   *
    * @param type    The node type (mandatory)
    * @param flags   The node's flags (mandatory, but may be empty)
    * @param lineno  The node's line number (mandatory)
    * @param code    The node code (optional)
    *
-   * Additionally, only for function and class declarations (thus obviously optional):
+   * Additionally, only for decl nodes, i.e., function and class declarations (thus obviously optional):
    * @param endlineno  The node's last line number
    * @param name       The function's or class's name
    * @param doccomment The function's or class's doc comment
+   *
    */
-  public function store_node( $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
+  private function store_node( $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
 
     // replace ambiguous signs in $code and $doccomment
     $this->cleanup( $code);
@@ -151,9 +173,34 @@ class CSVExporter {
   }
 
   /**
+   * Stores a file node, increases the node counter AND stores a
+   * relationship from this node to the one that will come after it.
+   *
+   * Note that this means that after calling store_filenode(), one
+   * *MUST* call export() with the corresponding AST of that file,
+   * otherwise the file node will have a FILE_OF relationship whose
+   * end node does not exist.
+   *
+   * TODO: Thus, store_filenode() and export() should be
+   * private. Instead there should a single public function that takes
+   * both the filename and the AST, then calls store_filenode() and
+   * export(). However we still have to see anyway how to deal with
+   * Directory nodes...
+   *
+   * @param $filename The file's name, which will be stored under the
+   *                  'name' poperty of the File node.
+   */
+  public function store_filenode( $filename) {
+
+    fwrite( $this->nhandle, "{$this->nodecount}\tFile\t\t\t\t\t{$filename}\t\n");
+    $this->store_rel( $this->nodecount, ++$this->nodecount, "FILE_OF");
+  }
+
+  /**
    * Replaces ambiguous signs in $str, namely
    * \t -> \\t
    * \n -> \\n
+   * \r -> \\r
    *
    * Additionally, if the first and last characters of $str are quotation
    * signs, we also replace
@@ -166,6 +213,7 @@ class CSVExporter {
 
     $str = str_replace( "\t", "\\t", $str);
     $str = str_replace( "\n", "\\n", $str);
+    $str = str_replace( "\r", "\\r", $str);
     if( preg_match( '/^"(.*)"$/', $str, $matches)) {
       $str = "\"".str_replace( "\"", "\\\"", $matches[1])."\"";
     }
@@ -178,7 +226,7 @@ class CSVExporter {
    * @param end     The ending node's index
    * @param type    The relationship's type
    */
-  public function store_rel( $start, $end, $type) {
+  private function store_rel( $start, $end, $type) {
 
     fwrite( $this->rhandle, "{$start}\t{$end}\t{$type}\n");
   }
