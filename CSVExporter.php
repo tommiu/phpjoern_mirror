@@ -17,7 +17,7 @@ class CSVExporter {
    * @param $nodefile Name of the nodes file
    * @param $relfile  Name of the relationship file
    */
-  function __construct( $nodefile = "nodes.csv", $relfile = "rels.csv") {
+  public function __construct( $nodefile = "nodes.csv", $relfile = "rels.csv") {
 
     // TODO some error handling would be nice, e.g., file already exists,
     // or can't be written too, etc.
@@ -31,7 +31,7 @@ class CSVExporter {
   /**
    * Destructor, closes file handlers.
    */
-  function __destruct() {
+  public function __destruct() {
 
     fclose( $this->nhandle);
     fclose( $this->rhandle);
@@ -45,7 +45,7 @@ class CSVExporter {
    * necessary when $ast is a plain value, since we cannot get back from
    * a plain value to the parent node to learn the line number.
    */
-  function export( $ast, $nodeline = 0) {
+  public function export( $ast, $nodeline = 0) {
 
     // (1) if $ast is an AST node, print info and recurse
     // An instance of ast\Node declares:
@@ -140,7 +140,7 @@ class CSVExporter {
    * @param name       The function's or class's name
    * @param doccomment The function's or class's doc comment
    */
-  function store_node( $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
+  public function store_node( $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
 
     // replace ambiguous signs in $code and $doccomment
     $this->cleanup( $code);
@@ -152,15 +152,17 @@ class CSVExporter {
 
   /**
    * Replaces ambiguous signs in $str, namely
-   * - \t -> \\t
-   * - \n -> \\n
-   * - " -> \"
-   * Note that if the first and last characters of $str are quotation
-   * signs, these are explicitly not escaped.
+   * \t -> \\t
+   * \n -> \\n
+   *
+   * Additionally, if the first and last characters of $str are quotation
+   * signs, we also replace
+   * " -> \"
+   * except for the first and last characters of $str themselves.
    *
    * @param $str The string to be cleaned up
    */
-  function cleanup( &$str) {
+  private function cleanup( &$str) {
 
     $str = str_replace( "\t", "\\t", $str);
     $str = str_replace( "\n", "\\n", $str);
@@ -176,7 +178,7 @@ class CSVExporter {
    * @param end     The ending node's index
    * @param type    The relationship's type
    */
-  function store_rel( $start, $end, $type) {
+  public function store_rel( $start, $end, $type) {
 
     fwrite( $this->rhandle, "{$start}\t{$end}\t{$type}\n");
   }
@@ -206,7 +208,7 @@ class CSVExporter {
    *
    * @return A comma-separated list of named flags.
    */
-  function csv_format_flags( int $kind, int $flags) : string {
+  private function csv_format_flags( int $kind, int $flags) : string {
 
     list( $exclusive, $combinable) = get_flag_info();
     if( isset( $exclusive[$kind])) {
