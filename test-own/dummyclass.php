@@ -1,5 +1,8 @@
 <?php
 
-class bar {
-  public static function foo() {}
+/**
+ * Yay!
+ */
+final class bar extends buzz implements foo {
+  abstract function foo();
 }

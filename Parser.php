@@ -132,9 +132,11 @@ else {
 }
 */
 
+$csvexporter = new CSVExporter( $nodefile, $relfile);
+
 foreach( $sources as $source) {
 
-  $ast = ''; // important: empty this at iteration start (in case an exception is thrown by ast\parse_file)
+  $ast = null; // important: empty this at iteration start (in case an exception is thrown by ast\parse_file)
 
   $filepath = substr( $source, strlen( $prefix));
   echo 'Parsing file ', $filepath, PHP_EOL;
@@ -143,17 +145,18 @@ foreach( $sources as $source) {
     $ast = ast\parse_file( $source);
   }
   catch( Error $e) {
-    //echo $e->getMessage(), PHP_EOL;
     $ERRORS .= "In $source: ".$e->getMessage()."\n";
   }
 
-  mkdir( $outdir.DIRECTORY_SEPARATOR.$filepath, 0755, true);
+  // mkdir( $outdir.DIRECTORY_SEPARATOR.$filepath, 0755, true);
 
-  ast_csv_export( $ast, $nodefile, $relfile);
-  //echo ast_dump( $ast);
+  $csvexporter->export( $ast);
+  //echo ast_dump( $ast), PHP_EOL;
   //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', ast_dump( $ast, AST_DUMP_LINENOS));
   //file_put_contents( $outdir.DIRECTORY_SEPARATOR.$filepath.DIRECTORY_SEPARATOR.'ast.dump', var_dump( $ast));
 }
+
+//$csvexporter->__destruct();
 
 //if( !is_empty( $ERRORS)) {
   echo "Errors: \n";
