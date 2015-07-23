@@ -8,6 +8,8 @@ class CSVExporter {
   private $nhandle;
   /** Handle for the relationship file */
   private $rhandle;
+  /** Node counter */
+  private $nodecount = 0;
 
   /**
    * Constructor, creates file handlers.
@@ -22,8 +24,8 @@ class CSVExporter {
     $this->nhandle = fopen( $nodefile, "w");
     $this->rhandle = fopen( $relfile, "w");
 
-    $this->store_node( "index:int", "type", "flags:string_array", "lineno:int", "code", "endlineno:int", "name", "doccomment");
-    $this->store_rel( "start", "end", "type");
+    fwrite( $this->nhandle, "index:int\ttype\tflags:string_array\tlineno:int\tcode\tendlineno:int\tname\tdoccomment\n");
+    fwrite( $this->rhandle, "start\tend\ttype\n");
   }
 
   /**
@@ -39,17 +41,11 @@ class CSVExporter {
    * Exports a syntax tree into two CSV files as
    * described in https://github.com/jexp/batch-import/
    *
-   * @param $nodecount keeps track of node indices. Mostly for internal
-   * use, since the function calls itself recursively.
-   *
    * @param $nodeline indicates the nodeline of the parent node. This is
    * necessary when $ast is a plain value, since we cannot get back from
    * a plain value to the parent node to learn the line number.
-   *
-   * @return The increased node count, i.e., $nodecount plus the number of children
-   *         and children's children etc. found in $ast
    */
-  function export( $ast, $nodecount = 0, $nodeline = 0) : int {
+  function export( $ast, $nodeline = 0) {
 
     // (1) if $ast is an AST node, print info and recurse
     // An instance of ast\Node declares:
@@ -82,13 +78,12 @@ class CSVExporter {
 	$nodedoccomment = $ast->docComment;
       }
 
-      $this->store_node( $nodecount, $nodetype, $nodeflags, $nodeline, "", $nodeendline, $nodename, $nodedoccomment);
+      $startnode = $this->nodecount; // important: save $startnode *before* calling store_node()!
+      $this->store_node( $nodetype, $nodeflags, $nodeline, "", $nodeendline, $nodename, $nodedoccomment);
 
-      $startnode = $nodecount;
       foreach( $ast->children as $i => $child) {
-	$nodecount++;
-	$this->store_rel( $startnode, $nodecount, "PARENT_OF");
-	$nodecount = $this->export( $child, $nodecount, $nodeline);
+	$this->store_rel( $startnode, $this->nodecount, "PARENT_OF");
+	$this->export( $child, $nodeline);
       }
     }
 
@@ -99,10 +94,7 @@ class CSVExporter {
     else if( is_string( $ast)) {
 
       $nodetype = gettype( $ast); // should be string
-      $this->store_node( $nodecount, $nodetype, "", $nodeline, "\"$ast\"");
-
-      // TODO what if we consider a string that contains newlines and/or tabs and/or quotes?
-      // probably screws up our nodes.csv file... (ask Fabian how he dealt with this in the past)
+      $this->store_node( $nodetype, "", $nodeline, "\"$ast\"");
     }
 
     // (3) If it a plain value and more precisely null, there's no corresponding code per se, so we just print the type.
@@ -114,7 +106,7 @@ class CSVExporter {
     else if( $ast === null) {
 
       $nodetype = gettype( $ast); // should be NULL
-      $this->store_node( $nodecount, $nodetype, "", $nodeline);
+      $this->store_node( $nodetype, "", $nodeline);
     }
 
     // (4) if it is a plain value but not a string and not null, cast to string and store the result as $nodecode
@@ -131,16 +123,13 @@ class CSVExporter {
 
       $nodetype = gettype( $ast);
       $nodecode = (string) $ast;
-      $this->store_node( $nodecount, $nodetype, "", $nodeline, $nodecode);
+      $this->store_node( $nodetype, "", $nodeline, $nodecode);
     }
-
-    return $nodecount;
   }
 
   /*
-   * Helper function to write a node to a CSV file
+   * Helper function to write a node to a CSV file and increase the node counter
    *
-   * @param index   The node index (mandatory)
    * @param type    The node type (mandatory)
    * @param flags   The node's flags (mandatory, but may be empty)
    * @param lineno  The node's line number (mandatory)
@@ -151,9 +140,33 @@ class CSVExporter {
    * @param name       The function's or class's name
    * @param doccomment The function's or class's doc comment
    */
-  function store_node( $index, $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
+  function store_node( $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
 
-    fwrite( $this->nhandle, "$index\t$type\t$flags\t$lineno\t$code\t$endlineno\t$name\t$doccomment\n");
+    // replace ambiguous signs in $code and $doccomment
+    $this->cleanup( $code);
+    $this->cleanup( $doccomment);
+
+    fwrite( $this->nhandle, "{$this->nodecount}\t{$type}\t{$flags}\t{$lineno}\t{$code}\t{$endlineno}\t{$name}\t{$doccomment}\n");
+    $this->nodecount++;
+  }
+
+  /**
+   * Replaces ambiguous signs in $str, namely
+   * - \t -> \\t
+   * - \n -> \\n
+   * - " -> \"
+   * Note that if the first and last characters of $str are quotation
+   * signs, these are explicitly not escaped.
+   *
+   * @param $str The string to be cleaned up
+   */
+  function cleanup( &$str) {
+
+    $str = str_replace( "\t", "\\t", $str);
+    $str = str_replace( "\n", "\\n", $str);
+    if( preg_match( '/^"(.*)"$/', $str, $matches)) {
+      $str = "\"".str_replace( "\"", "\\\"", $matches[1])."\"";
+    }
   }
 
   /*
@@ -165,7 +178,7 @@ class CSVExporter {
    */
   function store_rel( $start, $end, $type) {
 
-    fwrite( $this->rhandle, "$start\t$end\t$type\n");
+    fwrite( $this->rhandle, "{$start}\t{$end}\t{$type}\n");
   }
 
   /*
