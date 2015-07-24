@@ -3,3 +3,5 @@
 test-repos/
 nodes.csv
 rels.csv
+batch-import/
+graph.db/

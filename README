@@ -1,5 +1,5 @@
-1. Installation
----------------
+1. Installation of PHP7
+-----------------------
 
 We need a working installation of PHP7 (under development) with the
 php-ast extension by nikic.
@@ -35,14 +35,10 @@ PHP7.
 Example usage:
 
 $ ./parser test-own/42.php
+$ ./parser test-repos/agavi
 
-This creates a directory .php-joern/ in the current working directory
-and dumps the AST into .php-joern/42.php/ast.dump
-
-If given a directory, the parser will create a file for each PHP file
-that it finds and create directories in .php-joern/ accordingly. The
-underlying directory structure of the parsed directory is also
-reflected.
+This creates two files nodes.csv and rels.csv for usage with the
+batch-importer (see section 5).
 
 
 3. Obtaining test repositories
@@ -55,3 +51,75 @@ directory test-repos/
 Simply call it like so:
 
 $ ./get_test_repos.sh
+
+
+4. Installing the Neo4J graph database
+--------------------------------------
+
+We're going to import the CSV files created in section 2 into a Neo4J
+graph database. We're currently working with Neo4J Community 2.2.3,
+available from http://neo4j.com/download/other-releases/. Download and
+unpack it somewhere:
+
+$ curl -O http://neo4j.com/artifact.php?name=neo4j-community-2.2.3-unix.tar.gz
+$ tar xvfz artifact.php\?name=neo4j-community-2.2.3-unix.tar.gz
+
+
+5. Importing ASTs into a Neo4J graph database
+---------------------------------------------
+
+Once we have the files nodes.csv and rels.csv for some PHP project, we
+want to import them into a Neo4J database. Two tools are available for
+this purpose.
+
+5a. Using neo4j-import
+~~~~~~~~~~~~~~~~~~~~~~
+
+Since Neo4J 2.2, Neo4J comes with its own massively parallel and
+scalable CSV importer. For more information, see:
+* http://neo4j.com/developer/guide-import-csv/#_super_fast_batch_importer_for_huge_datasets
+* http://neo4j.com/docs/stable/import-tool.html
+
+
+... TODO ...
+
+
+Note: You can configure higher Java heap sizes by choosing appropriate
+values for wrapper.java.initmemory and wrapper.java.maxmemory in
+/path/to/neo4j/conf/neo4j-wrapper.conf
+
+
+
+5b. Using batch-import (legacy support)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is also possible to use the batch-importer tool available at
+https://github.com/jexp/batch-import/
+
+This may be useful, e.g., if there is a problem with neo4j-import of
+if an older version of Neo4J (prior to 2.2) is to be used for some
+reason.
+
+To install it, use something like this:
+
+$ mkdir batch-import # or if you also want the sources: $ git clone https://github.com/jexp/batch-import.git
+$ cd batch-import
+$ curl -O https://dl.dropboxusercontent.com/u/14493611/batch_importer_22.zip 
+$ unzip batch_importer_22.zip
+
+Make sure that the version of batch importer matches the version of
+the Neo4J database (2.2 in the above example).
+
+Extracting the ZIP file creates a directory lib/ with the necessary JAR files.
+
+Next, use the following command to create a Neo4J database directory
+graph.db/ from the two CSV files (adapt the path to batch-import):
+
+$ HEAP=6G; java -classpath "/path/to/batch-import/lib/*" -Xmx$HEAP -Xms$HEAP -Dfile.encoding=UTF-8 org.neo4j.batchimport.Importer batch.properties graph.db nodes.csv rels.csv
+
+The heap size may be adapted as needed; the batch.properties file
+should be configured accordingly. See
+http://joern.readthedocs.org/en/latest/performance.html#optimizing-code-importing
+
+The file batch.properties provided with php-joern is for heap sizes of 6GB or more.
+

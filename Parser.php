@@ -10,6 +10,7 @@ require 'CSVExporter.php'; // for ast_csv_export()
 // require 'util.php'; // for ast_dump()
 
 $path = NULL; // file/folder to be parsed
+$mode = CSVExporter::NEO4J_MODE; // mode to use for export
 
 /**
  * Parses the cli arguments.
@@ -32,17 +33,38 @@ function parse_arguments() {
     return false;
   }
 
-  // Remove the script name
+  // Remove the script name (first argument)
   array_shift( $argv);
-  
-  if( count( $argv) !== 1) {
-    error_log( '[ERROR] Please specify exactly one path to be parsed.');
+
+  if( count( $argv) === 0) {
+    error_log( '[ERROR] Missing argument.');
     return false;
   }
 
+  // Set the path and remove from command line (last argument)
   global $path;
   $path = (string) array_pop( $argv);
-  
+
+  // Now see if a mode has been set
+  global $mode;
+  $options = getopt( "m:");
+  if( $options === FALSE)
+    error_log( '[ERROR] Could not parse command line arguments.');
+  else if( isset( $options['m'])) {
+    switch( $options['m']) {
+    case "jexp":
+      $mode = CSVExporter::JEXP_MODE;
+      break;
+    case "neo4j":
+      $mode = CSVExporter::NEO4J_MODE;
+      break;
+    default:
+      error_log( "[WARNING] Unknown mode '{$options['m']}', using neo4j mode.");
+      $mode = CSVExporter::NEO4J_MODE;
+      break;
+    }
+  }
+ 
   return true;
 }
 
@@ -51,9 +73,9 @@ function parse_arguments() {
  */
 function print_help() {
 
-  // TODO read version string from somewhere...
+  // TODO read script name and version string from somewhere...
   echo 'php-joern parser utility 0.0.1', PHP_EOL, PHP_EOL;
-  echo 'Usage: php Parser.php <file|folder>', PHP_EOL;
+  echo 'Usage: ./parser [-m <neo4j|jexp>] <file|folder>', PHP_EOL;
 }
 
 /**
@@ -126,12 +148,12 @@ if( !file_exists( $path) || !is_readable( $path)) {
 
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
-  $csvexporter = new CSVExporter();
+  $csvexporter = new CSVExporter( $mode);
   parse_file( $path, $csvexporter);
   $csvexporter->__destruct();
 }
 elseif( is_dir( $path)) {
-  $csvexporter = new CSVExporter();
+  $csvexporter = new CSVExporter( $mode);
   parse_dir( $path, $csvexporter);
   $csvexporter->__destruct();
 }

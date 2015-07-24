@@ -12,6 +12,14 @@ require 'util.php';
 
 class CSVExporter {
 
+  /** Constant for Neo4J mode (to be used with neo4j-import) */
+  const NEO4J_MODE = 0;
+  /** Constant for jexp mode (to be used with batch-import) */
+  const JEXP_MODE = 1;
+
+  /** Used mode -- defaults to Neo4J */
+  private $mode = NEO4J_MODE;
+
   /** Handle for the node file */
   private $nhandle;
   /** Handle for the relationship file */
@@ -22,10 +30,13 @@ class CSVExporter {
   /**
    * Constructor, creates file handlers.
    *
+   * @param $mode     Mode to use for export (neo4j or jexp)
    * @param $nodefile Name of the nodes file
    * @param $relfile  Name of the relationship file
    */
-  public function __construct( $nodefile = "nodes.csv", $relfile = "rels.csv") {
+  public function __construct( $mode = NEO4J_MODE, $nodefile = "nodes.csv", $relfile = "rels.csv") {
+
+    $this->mode = $mode;
 
     // TODO some error handling would be nice, e.g., file already exists,
     // or can't be written too, etc.
