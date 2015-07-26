@@ -18,7 +18,13 @@ class CSVExporter {
   const JEXP_MODE = 1;
 
   /** Used mode -- defaults to Neo4J */
-  private $mode = NEO4J_MODE;
+  private $mode = self::NEO4J_MODE;
+
+  /** Delimiter for columns in CSV files */
+  private $csv_delim = ",";
+  /** Delimiter for arrays in CSV files */
+  private $array_delim = ";";
+
 
   /** Handle for the node file */
   private $nhandle;
@@ -34,17 +40,33 @@ class CSVExporter {
    * @param $nodefile Name of the nodes file
    * @param $relfile  Name of the relationship file
    */
-  public function __construct( $mode = NEO4J_MODE, $nodefile = "nodes.csv", $relfile = "rels.csv") {
+  public function __construct( $mode = self::NEO4J_MODE, $nodefile = "nodes.csv", $relfile = "rels.csv") {
 
     $this->mode = $mode;
+
+    // if mode is non-default, adapt delimiters
+    if( $this->mode === self::JEXP_MODE) {
+      $this->csv_delim = "\t";
+      $this->array_delim = ",";
+    }
 
     // TODO some error handling would be nice, e.g., file already exists,
     // or can't be written too, etc.
     $this->nhandle = fopen( $nodefile, "w");
     $this->rhandle = fopen( $relfile, "w");
 
-    fwrite( $this->nhandle, "index:int\ttype\tflags:string_array\tlineno:int\tcode\tendlineno:int\tname\tdoccomment\n");
-    fwrite( $this->rhandle, "start\tend\ttype\n");
+    // if mode is non-default, adapt headers
+    if( $this->mode === self::JEXP_MODE) {
+      $this->csv_delim = "\t";
+      $this->array_delim = ",";
+
+      fwrite( $this->nhandle, "index:int{$this->csv_delim}type{$this->csv_delim}flags:string_array{$this->csv_delim}lineno:int{$this->csv_delim}code{$this->csv_delim}endlineno:int{$this->csv_delim}name{$this->csv_delim}doccomment\n");
+      fwrite( $this->rhandle, "start{$this->csv_delim}end{$this->csv_delim}type\n");
+    }
+    else {
+      fwrite( $this->nhandle, "nodeId:ID{$this->csv_delim}type{$this->csv_delim}flags:string[]{$this->csv_delim}lineno:int{$this->csv_delim}code{$this->csv_delim}endlineno:int{$this->csv_delim}name{$this->csv_delim}doccomment\n");
+      fwrite( $this->rhandle, ":START_ID{$this->csv_delim}:END_ID{$this->csv_delim}:TYPE\n");
+    }
   }
 
   /**
@@ -96,7 +118,7 @@ class CSVExporter {
 	$nodename = $ast->name;
       }
       if( isset( $ast->docComment)) {
-	$nodedoccomment = $ast->docComment;
+	$nodedoccomment = "\"{$ast->docComment}\"";
       }
 
       $startnode = $this->nodecount; // important: save $startnode *before* calling store_node()!
@@ -179,7 +201,7 @@ class CSVExporter {
     $this->cleanup( $code);
     $this->cleanup( $doccomment);
 
-    fwrite( $this->nhandle, "{$this->nodecount}\t{$type}\t{$flags}\t{$lineno}\t{$code}\t{$endlineno}\t{$name}\t{$doccomment}\n");
+    fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$flags}{$this->csv_delim}{$lineno}{$this->csv_delim}{$code}{$this->csv_delim}{$endlineno}{$this->csv_delim}{$name}{$this->csv_delim}{$doccomment}\n");
     $this->nodecount++;
   }
 
@@ -203,15 +225,18 @@ class CSVExporter {
    */
   public function store_filenode( $filename) {
 
-    fwrite( $this->nhandle, "{$this->nodecount}\tFile\t\t\t\t\t{$filename}\t\n");
+    fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}File{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$filename}{$this->csv_delim}\n");
     $this->store_rel( $this->nodecount, ++$this->nodecount, "FILE_OF");
   }
 
   /**
    * Replaces ambiguous signs in $str, namely
-   * \t -> \\t
+   * \ -> \\
+   * \t -> \\t (only for JEXP_MODE)
    * \n -> \\n
    * \r -> \\r
+   *
+   * TODO with neo4j-import, we might not even need to replace \n and \r...
    *
    * Additionally, if the first and last characters of $str are quotation
    * signs, we also replace
@@ -222,7 +247,11 @@ class CSVExporter {
    */
   private function cleanup( &$str) {
 
-    $str = str_replace( "\t", "\\t", $str);
+    $str = str_replace( "\\", "\\\\", $str);
+
+    if( $this->mode === self::JEXP_MODE) {
+      $str = str_replace( "\t", "\\t", $str);
+    }
     $str = str_replace( "\n", "\\n", $str);
     $str = str_replace( "\r", "\\r", $str);
     if( preg_match( '/^"(.*)"$/', $str, $matches)) {
@@ -239,7 +268,7 @@ class CSVExporter {
    */
   private function store_rel( $start, $end, $type) {
 
-    fwrite( $this->rhandle, "{$start}\t{$end}\t{$type}\n");
+    fwrite( $this->rhandle, "{$start}{$this->csv_delim}{$end}{$this->csv_delim}{$type}\n");
   }
 
   /*
@@ -286,7 +315,7 @@ class CSVExporter {
 	}
       }
       if( !empty($names)) {
-	return implode(",", $names);
+	return implode( $this->array_delim, $names);
       }
     }
 
@@ -299,7 +328,7 @@ class CSVExporter {
     if( $flags === 0)
       return "";
     else
-      return "[ERROR] Unexpected flags for kind: kind=$kind and flags=$flags";
+      return "\"[ERROR] Unexpected flags for kind: kind=$kind and flags=$flags\"";
   }
 
 }
