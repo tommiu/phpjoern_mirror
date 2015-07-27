@@ -44,18 +44,12 @@ class CSVExporter {
 
     $this->mode = $mode;
 
-    // if mode is non-default, adapt delimiters
-    if( $this->mode === self::JEXP_MODE) {
-      $this->csv_delim = "\t";
-      $this->array_delim = ",";
-    }
-
     // TODO some error handling would be nice, e.g., file already exists,
     // or can't be written too, etc.
     $this->nhandle = fopen( $nodefile, "w");
     $this->rhandle = fopen( $relfile, "w");
 
-    // if mode is non-default, adapt headers
+    // if mode is non-default, adapt delimiters and headers
     if( $this->mode === self::JEXP_MODE) {
       $this->csv_delim = "\t";
       $this->array_delim = ",";
@@ -100,7 +94,7 @@ class CSVExporter {
     // $endLineno (end line number of the declaration)
     // $name (the name of the declared function/class)
     // $docComment (the preceding doc comment)
-    if ($ast instanceof ast\Node) {
+    if( $ast instanceof ast\Node) {
 
       $nodetype = ast\get_kind_name( $ast->kind);
       $nodeline = $ast->lineno;
@@ -118,7 +112,7 @@ class CSVExporter {
 	$nodename = $ast->name;
       }
       if( isset( $ast->docComment)) {
-	$nodedoccomment = "\"{$ast->docComment}\"";
+	$nodedoccomment = $this->quote_and_escape( $ast->docComment);
       }
 
       $startnode = $this->nodecount; // important: save $startnode *before* calling store_node()!
@@ -137,7 +131,7 @@ class CSVExporter {
     else if( is_string( $ast)) {
 
       $nodetype = gettype( $ast); // should be string
-      $this->store_node( $nodetype, "", $nodeline, "\"$ast\"");
+      $this->store_node( $nodetype, "", $nodeline, $this->quote_and_escape( $ast));
     }
 
     // (3) If it a plain value and more precisely null, there's no corresponding code per se, so we just print the type.
@@ -197,10 +191,6 @@ class CSVExporter {
    */
   private function store_node( $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
 
-    // replace ambiguous signs in $code and $doccomment
-    $this->cleanup( $code);
-    $this->cleanup( $doccomment);
-
     fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$flags}{$this->csv_delim}{$lineno}{$this->csv_delim}{$code}{$this->csv_delim}{$endlineno}{$this->csv_delim}{$name}{$this->csv_delim}{$doccomment}\n");
     $this->nodecount++;
   }
@@ -225,6 +215,8 @@ class CSVExporter {
    */
   public function store_filenode( $filename) {
 
+    $filename = $this->quote_and_escape( $filename);
+
     fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}File{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$filename}{$this->csv_delim}\n");
     $this->store_rel( $this->nodecount, ++$this->nodecount, "FILE_OF");
   }
@@ -232,31 +224,33 @@ class CSVExporter {
   /**
    * Replaces ambiguous signs in $str, namely
    * \ -> \\
-   * \t -> \\t (only for JEXP_MODE)
+   * " -> \"
+   * TODO because of a bug in neo4j-import, we also
+   * replace newlines for now:
    * \n -> \\n
    * \r -> \\r
+   * Additionally, puts quotes around the resulting string.
    *
-   * TODO with neo4j-import, we might not even need to replace \n and \r...
-   *
-   * Additionally, if the first and last characters of $str are quotation
-   * signs, we also replace
-   * " -> \"
-   * except for the first and last characters of $str themselves.
-   *
-   * @param $str The string to be cleaned up
+   * @param $str  The string to be quoted and escaped
+   * @return $str The quoted and escaped string
    */
-  private function cleanup( &$str) {
+  private function quote_and_escape( $str) : string {
 
     $str = str_replace( "\\", "\\\\", $str);
 
-    if( $this->mode === self::JEXP_MODE) {
-      $str = str_replace( "\t", "\\t", $str);
+    // TODO usually multi-line fields *should* be fine provided that
+    // they are quoted properly. However this does not appear to work
+    // right now with neo4j-import
+    // (https://github.com/neo4j/neo4j/issues/5028), so let's escape
+    // newlines as a workaround for now...
+    if( $this->mode === self::NEO4J_MODE) {
+      $str = str_replace( "\n", "\\n", $str);
+      $str = str_replace( "\r", "\\r", $str);
     }
-    $str = str_replace( "\n", "\\n", $str);
-    $str = str_replace( "\r", "\\r", $str);
-    if( preg_match( '/^"(.*)"$/', $str, $matches)) {
-      $str = "\"".str_replace( "\"", "\\\"", $matches[1])."\"";
-    }
+
+    $str = "\"".str_replace( "\"", "\\\"", $str)."\"";
+
+    return $str;
   }
 
   /*
