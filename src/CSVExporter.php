@@ -81,8 +81,15 @@ class CSVExporter {
    *                  is necessary when $ast is a plain value, since
    *                  we cannot get back from a plain value to the
    *                  parent node to learn the line number.
+
+   * @return The root node index of the exported AST (i.e., the value
+   *         of $this->nodecount at the point in time where this
+   *         function was called.)
    */
-  public function export( $ast, $nodeline = 0) {
+  public function export( $ast, $nodeline = 0) : int {
+
+    // save the root node index
+    $rootnode = $this->nodecount;
 
     // (1) if $ast is an AST node, print info and recurse
     // An instance of ast\Node declares:
@@ -115,12 +122,11 @@ class CSVExporter {
 	$nodedoccomment = $this->quote_and_escape( $ast->docComment);
       }
 
-      $startnode = $this->nodecount; // important: save $startnode *before* calling store_node()!
+      // store node, export all children and store the relationships
       $this->store_node( $nodetype, $nodeflags, $nodeline, "", $nodeendline, $nodename, $nodedoccomment);
-
       foreach( $ast->children as $i => $child) {
-	$this->store_rel( $startnode, $this->nodecount, "PARENT_OF");
-	$this->export( $child, $nodeline);
+	$childnode = $this->export( $child, $nodeline);
+	$this->store_rel( $rootnode, $childnode, "PARENT_OF");
       }
     }
 
@@ -162,6 +168,8 @@ class CSVExporter {
       $nodecode = (string) $ast;
       $this->store_node( $nodetype, "", $nodeline, $nodecode);
     }
+
+    return $rootnode;
   }
 
   /*
