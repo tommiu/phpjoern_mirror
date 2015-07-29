@@ -204,29 +204,20 @@ class CSVExporter {
   }
 
   /**
-   * Stores a file node, increases the node counter AND stores a
-   * relationship from this node to the one that will come after it.
-   *
-   * Note that this means that after calling store_filenode(), one
-   * *MUST* call export() with the corresponding AST of that file,
-   * otherwise the file node will have a FILE_OF relationship whose
-   * end node does not exist.
-   *
-   * TODO: Thus, store_filenode() and export() should be
-   * private. Instead there should a single public function that takes
-   * both the filename and the AST, then calls store_filenode() and
-   * export(). However we still have to see anyway how to deal with
-   * Directory nodes...
+   * Stores a file node, increases the node counter and returns the
+   * index of the stored file node.
    *
    * @param $filename The file's name, which will be stored under the
    *                  'name' poperty of the File node.
    */
-  public function store_filenode( $filename) {
+  public function store_filenode( $filename) : int {
 
     $filename = $this->quote_and_escape( $filename);
 
     fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}File{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$filename}{$this->csv_delim}\n");
-    $this->store_rel( $this->nodecount, ++$this->nodecount, "FILE_OF");
+
+    $this->nodecount++;
+    return ($this->nodecount-1);
   }
 
   /**
@@ -262,13 +253,13 @@ class CSVExporter {
   }
 
   /*
-   * Helper function to write a relationship to a CSV file
+   * Writes a relationship to a CSV file.
    *
    * @param start   The starting node's index
    * @param end     The ending node's index
    * @param type    The relationship's type
    */
-  private function store_rel( $start, $end, $type) {
+  public function store_rel( $start, $end, $type) {
 
     fwrite( $this->rhandle, "{$start}{$this->csv_delim}{$end}{$this->csv_delim}{$type}\n");
   }

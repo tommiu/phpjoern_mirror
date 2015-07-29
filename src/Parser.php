@@ -95,8 +95,9 @@ function parse_file( $path, $csvexporter) {
 
     // The above may throw a ParseError. We only export to CSV if that
     // didn't happen.
-    $csvexporter->store_filenode( $finfo->getFilename());
-    $csvexporter->export( $ast);
+    $fnode = $csvexporter->store_filenode( $finfo->getFilename());
+    $astroot = $csvexporter->export( $ast);
+    $csvexporter->store_rel( $fnode, $astroot, "FILE_OF");
     //echo ast_dump( $ast), PHP_EOL;
   }
   catch( ParseError $e) {
