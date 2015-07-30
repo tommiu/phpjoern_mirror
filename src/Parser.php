@@ -107,8 +107,15 @@ function parse_arguments() {
  */
 function print_version() {
 
-  // TODO read script name and version string from somewhere...
-  echo 'php-joern parser utility 0.0.1', PHP_EOL;
+  $version = 'UNKNOWN';
+
+  // Note: Only works on Unix :-p
+  if( file_exists( ".git/HEAD"))
+    if( preg_match( '/^ref: (.+)$/', file_get_contents( ".git/HEAD"), $matches))
+      if( file_exists( ".git/{$matches[1]}"))
+	$version = substr( file_get_contents( ".git/{$matches[1]}"), 0, 7);
+
+  echo "php-joern parser utility, commit {$version}", PHP_EOL;
 }
 
 /**

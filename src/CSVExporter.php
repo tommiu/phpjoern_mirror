@@ -47,7 +47,7 @@ class CSVExporter {
    *
    * @param $format   Format to use for export (neo4j or jexp)
    * @param $nodefile Name of the nodes file
-   * @param $relfile  Name of the relationship file
+   * @param $relfile  Name of the relationships file
    */
   public function __construct( $format = self::NEO4J_FORMAT, $nodefile = self::NODE_FILE, $relfile = self::REL_FILE) {
 
