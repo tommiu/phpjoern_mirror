@@ -25,6 +25,11 @@ class CSVExporter {
   /** Delimiter for arrays in CSV files */
   private $array_delim = ";";
 
+  /** Default name of node file */
+  const NODE_FILE = "nodes.csv";
+  /** Default name of relationship file */
+  const REL_FILE = "rels.csv";
+
   /** Handle for the node file */
   private $nhandle;
   /** Handle for the relationship file */
@@ -44,7 +49,7 @@ class CSVExporter {
    * @param $nodefile Name of the nodes file
    * @param $relfile  Name of the relationship file
    */
-  public function __construct( $format = self::NEO4J_FORMAT, $nodefile = "nodes.csv", $relfile = "rels.csv") {
+  public function __construct( $format = self::NEO4J_FORMAT, $nodefile = self::NODE_FILE, $relfile = self::REL_FILE) {
 
     $this->format = $format;
 

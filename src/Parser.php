@@ -10,6 +10,8 @@ require 'CSVExporter.php';
 
 $path = NULL; // file/folder to be parsed
 $format = CSVExporter::NEO4J_FORMAT; // format to use for export
+$nodefile = CSVExporter::NODE_FILE; // name of node file
+$relfile = CSVExporter::REL_FILE; // name of relationship file
 
 /**
  * Parses the cli arguments.
@@ -240,12 +242,12 @@ if( !file_exists( $path) || !is_readable( $path)) {
 
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
-  $csvexporter = new CSVExporter( $format);
+  $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
   parse_file( $path, $csvexporter);
   $csvexporter->__destruct();
 }
 elseif( is_dir( $path)) {
-  $csvexporter = new CSVExporter( $format);
+  $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
   parse_dir( $path, $csvexporter);
   $csvexporter->__destruct();
 }
