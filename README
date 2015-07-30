@@ -40,12 +40,17 @@ $ ./parser test-repos/agavi
 This creates two files nodes.csv and rels.csv for use with the
 neo4j-import tool. It is also possible to generate these files for use
 with the batch-import tool, which uses a slightly different CSV file
-format, using the '-m jexp' switch:
+format, using the '-f jexp' switch:
 
-$ ./parser -m jexp test-own/42.php
-$ ./parser -m jexp test-repos/agavi
+$ ./parser -f jexp test-own/42.php
+$ ./parser -f jexp test-repos/agavi
 
-For more information on these tools, see section 5.
+For more information on the parser, see
+
+$ ./parser --help
+
+For more information on the neo4j-import and batch-import tools, see
+section 5.
 
 
 3. Obtaining test repositories
@@ -120,7 +125,7 @@ $ cd batch-import
 $ curl -O https://dl.dropboxusercontent.com/u/14493611/batch_importer_22.zip 
 $ unzip batch_importer_22.zip
 
-Make sure that the version of batch importer matches the version of
+Make sure that the version of batch-importer matches the version of
 the Neo4J database (2.2 in the above example).
 
 Extracting the ZIP file creates a directory lib/ with the necessary JAR files.
@@ -133,7 +138,7 @@ $ HEAP=6G; java -classpath "/path/to/batch-import/lib/*" -Xmx$HEAP -Xms$HEAP -Df
 Note that the format of the nodes.csv and rels.csv files expected by
 batch-import is slightly different from that expected by
 neo4j-import. The parser will generate the format expected by
-batch-import if invoked with the '-m jexp' flag (see section 2).
+batch-import if invoked with the '-f jexp' flag (see section 2).
 
 The heap size may be adapted as needed; the batch.properties file
 should be configured accordingly. See
