@@ -12,13 +12,13 @@ require 'util.php';
 
 class CSVExporter {
 
-  /** Constant for Neo4J mode (to be used with neo4j-import) */
-  const NEO4J_MODE = 0;
-  /** Constant for jexp mode (to be used with batch-import) */
-  const JEXP_MODE = 1;
+  /** Constant for Neo4J format (to be used with neo4j-import) */
+  const NEO4J_FORMAT = 0;
+  /** Constant for jexp format (to be used with batch-import) */
+  const JEXP_FORMAT = 1;
 
-  /** Used mode -- defaults to Neo4J */
-  private $mode = self::NEO4J_MODE;
+  /** Used format -- defaults to Neo4J */
+  private $format = self::NEO4J_FORMAT;
 
   /** Delimiter for columns in CSV files */
   private $csv_delim = ",";
@@ -40,21 +40,21 @@ class CSVExporter {
   /**
    * Constructor, creates file handlers.
    *
-   * @param $mode     Mode to use for export (neo4j or jexp)
+   * @param $format   Format to use for export (neo4j or jexp)
    * @param $nodefile Name of the nodes file
    * @param $relfile  Name of the relationship file
    */
-  public function __construct( $mode = self::NEO4J_MODE, $nodefile = "nodes.csv", $relfile = "rels.csv") {
+  public function __construct( $format = self::NEO4J_FORMAT, $nodefile = "nodes.csv", $relfile = "rels.csv") {
 
-    $this->mode = $mode;
+    $this->format = $format;
 
     // TODO some error handling would be nice, e.g., file already exists,
     // or can't be written too, etc.
     $this->nhandle = fopen( $nodefile, "w");
     $this->rhandle = fopen( $relfile, "w");
 
-    // if mode is non-default, adapt delimiters and headers
-    if( $this->mode === self::JEXP_MODE) {
+    // if format is non-default, adapt delimiters and headers
+    if( $this->format === self::JEXP_FORMAT) {
       $this->csv_delim = "\t";
       $this->array_delim = ",";
 
@@ -277,7 +277,7 @@ class CSVExporter {
     // right now with neo4j-import
     // (https://github.com/neo4j/neo4j/issues/5028), so let's escape
     // newlines as a workaround for now...
-    if( $this->mode === self::NEO4J_MODE) {
+    if( $this->format === self::NEO4J_FORMAT) {
       $str = str_replace( "\n", "\\n", $str);
       $str = str_replace( "\r", "\\r", $str);
     }

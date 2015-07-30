@@ -6,11 +6,10 @@
  * @author Malte Skoruppa <skoruppa@cs.uni-saarland.de>
  */
 
-require 'CSVExporter.php'; // for ast_csv_export()
-// require 'util.php'; // for ast_dump()
+require 'CSVExporter.php';
 
 $path = NULL; // file/folder to be parsed
-$mode = CSVExporter::NEO4J_MODE; // mode to use for export
+$format = CSVExporter::NEO4J_FORMAT; // format to use for export
 
 /**
  * Parses the cli arguments.
@@ -45,22 +44,22 @@ function parse_arguments() {
   global $path;
   $path = (string) array_pop( $argv);
 
-  // Now see if a mode has been set
-  global $mode;
-  $options = getopt( "m:");
+  // Now see if a format has been set
+  global $format;
+  $options = getopt( "f:");
   if( $options === FALSE)
     error_log( '[ERROR] Could not parse command line arguments.');
-  else if( isset( $options['m'])) {
-    switch( $options['m']) {
+  else if( isset( $options['f'])) {
+    switch( $options['f']) {
     case "jexp":
-      $mode = CSVExporter::JEXP_MODE;
+      $format = CSVExporter::JEXP_FORMAT;
       break;
     case "neo4j":
-      $mode = CSVExporter::NEO4J_MODE;
+      $format = CSVExporter::NEO4J_FORMAT;
       break;
     default:
-      error_log( "[WARNING] Unknown mode '{$options['m']}', using neo4j mode.");
-      $mode = CSVExporter::NEO4J_MODE;
+      error_log( "[WARNING] Unknown format '{$options['f']}', using neo4j format.");
+      $format = CSVExporter::NEO4J_FORMAT;
       break;
     }
   }
@@ -69,13 +68,29 @@ function parse_arguments() {
 }
 
 /**
+ * Prints a version message.
+ */
+function print_version() {
+
+  // TODO read script name and version string from somewhere...
+  echo 'php-joern parser utility 0.0.1', PHP_EOL;
+}
+
+/**
+ * Prints a usage message.
+ */
+function print_usage() {
+
+  echo 'Usage: ./parser [options] <file|folder>', PHP_EOL;
+}
+
+/**
  * Prints a help message.
  */
 function print_help() {
 
-  // TODO read script name and version string from somewhere...
-  echo 'php-joern parser utility 0.0.1', PHP_EOL, PHP_EOL;
-  echo 'Usage: ./parser [-m <neo4j|jexp>] <file|folder>', PHP_EOL;
+  echo 'Options:', PHP_EOL;
+  echo '  -f <format> Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
 }
 
 /**
@@ -147,6 +162,7 @@ function parse_dir( $path, $csvexporter, $top = true) : int {
 
   $dhandle = opendir( $path);
 
+  // iterate over everything in the current folder
   while( false !== ($filename = readdir( $dhandle))) {
     $finfo = new SplFileInfo( build_path( $path, $filename));
 
@@ -157,6 +173,7 @@ function parse_dir( $path, $csvexporter, $top = true) : int {
 	$found[] = $childdir;
   }
 
+  // if the current folder finds itself interesting...
   if( !empty( $found)) {
     if( !$top)
       $dirnode = $csvexporter->store_dirnode( basename( $path));
@@ -185,6 +202,8 @@ function build_path( ...$segments) {
  * Main script
  */
 if( parse_arguments() === false) {
+  print_usage();
+  echo PHP_EOL;
   print_help();
   exit( 1);
 }
@@ -197,12 +216,12 @@ if( !file_exists( $path) || !is_readable( $path)) {
 
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
-  $csvexporter = new CSVExporter( $mode);
+  $csvexporter = new CSVExporter( $format);
   parse_file( $path, $csvexporter);
   $csvexporter->__destruct();
 }
 elseif( is_dir( $path)) {
-  $csvexporter = new CSVExporter( $mode);
+  $csvexporter = new CSVExporter( $format);
   parse_dir( $path, $csvexporter);
   $csvexporter->__destruct();
 }
