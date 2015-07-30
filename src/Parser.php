@@ -152,7 +152,7 @@ function print_help() {
 function parse_file( $path, $csvexporter) : int {
 
   $finfo = new SplFileInfo( $path);
-  echo "Parsing file ", $finfo->getFilename(), PHP_EOL;
+  echo "Parsing file ", $finfo->getPathname(), PHP_EOL;
 
   try {
     $ast = ast\parse_file( $path);
