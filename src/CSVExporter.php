@@ -97,19 +97,16 @@ class CSVExporter {
    */
   public function export( $ast, $nodeline = 0) : int {
 
-    // save the root node index
-    $rootnode = $this->nodecount;
-
     // (1) if $ast is an AST node, print info and recurse
     // An instance of ast\Node declares:
-    // $kind (integral value, name can be retrieved using ast\get_kind_name())
-    // $flags (integral value, corresponding to a set of flags for the current node)
-    // $lineno (starting line number)
+    // $kind (integer, name can be retrieved using ast\get_kind_name())
+    // $flags (integer, corresponding to a set of flags for the current node)
+    // $lineno (integer, starting line number)
     // $children (array of child nodes)
     // Additionally, an instance of the subclass ast\Node\Decl declares:
-    // $endLineno (end line number of the declaration)
-    // $name (the name of the declared function/class)
-    // $docComment (the preceding doc comment)
+    // $endLineno (integer, end line number of the declaration)
+    // $name (string, the name of the declared function/class)
+    // $docComment (string, the preceding doc comment)
     if( $ast instanceof ast\Node) {
 
       $nodetype = ast\get_kind_name( $ast->kind);
@@ -132,7 +129,8 @@ class CSVExporter {
       }
 
       // store node, export all children and store the relationships
-      $this->store_node( $nodetype, $nodeflags, $nodeline, "", $nodeendline, $nodename, $nodedoccomment);
+      $rootnode = $this->store_node( $nodetype, $nodeflags, $nodeline, "", $nodeendline, $nodename, $nodedoccomment);
+
       foreach( $ast->children as $i => $child) {
 	$childnode = $this->export( $child, $nodeline);
 	$this->store_rel( $rootnode, $childnode, "PARENT_OF");
@@ -142,11 +140,12 @@ class CSVExporter {
     // if $ast is not an AST node, it should be a plain value
     // see http://php.net/manual/en/language.types.intro.php
 
-    // (2) if it is a plain value and more precisely a string, put quotes around the content
+    // (2) if it is a plain value and more precisely a string, escape
+    // it and put quotes around the content
     else if( is_string( $ast)) {
 
       $nodetype = gettype( $ast); // should be string
-      $this->store_node( $nodetype, "", $nodeline, $this->quote_and_escape( $ast));
+      $rootnode = $this->store_node( $nodetype, "", $nodeline, $this->quote_and_escape( $ast));
     }
 
     // (3) If it a plain value and more precisely null, there's no corresponding code per se, so we just print the type.
@@ -154,11 +153,11 @@ class CSVExporter {
     // $n = null;
     // Indeed, in this case, null would be parsed as an AST_CONST with appropriate children (see test-own/assignments.php)
     // Rather, we encounter a null node when things are undefined, such as, for instance, an array element's key,
-    // a class that does not use an "extends" or "implements" statement, a function that takes no parameters, etc.
+    // a class that does not use an "extends" or "implements" statement, a function that has no return value, etc.
     else if( $ast === null) {
 
       $nodetype = gettype( $ast); // should be NULL
-      $this->store_node( $nodetype, "", $nodeline);
+      $rootnode = $this->store_node( $nodetype, "", $nodeline);
     }
 
     // (4) if it is a plain value but not a string and not null, cast to string and store the result as $nodecode
@@ -175,7 +174,7 @@ class CSVExporter {
 
       $nodetype = gettype( $ast);
       $nodecode = (string) $ast;
-      $this->store_node( $nodetype, "", $nodeline, $nodecode);
+      $rootnode = $this->store_node( $nodetype, "", $nodeline, $nodecode);
     }
 
     return $rootnode;
@@ -206,11 +205,14 @@ class CSVExporter {
    * @param name       The function's or class's name
    * @param doccomment The function's or class's doc comment
    *
+   * @return The index of the stored node.
    */
-  private function store_node( $type, $flags, $lineno, $code, $endlineno, $name, $doccomment) {
+  private function store_node( $type, $flags, $lineno, $code, $endlineno, $name, $doccomment) : int {
 
     fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$flags}{$this->csv_delim}{$lineno}{$this->csv_delim}{$code}{$this->csv_delim}{$endlineno}{$this->csv_delim}{$name}{$this->csv_delim}{$doccomment}\n");
-    $this->nodecount++;
+
+    // return the current node index, *then* increment it
+    return $this->nodecount++;
   }
 
   /**
@@ -260,6 +262,17 @@ class CSVExporter {
     return $this->nodecount++;
   }
 
+  /*
+   * Writes a relationship to a CSV file.
+   *
+   * @param start   The starting node's index
+   * @param end     The ending node's index
+   * @param type    The relationship's type
+   */
+  public function store_rel( $start, $end, $type) {
+
+    fwrite( $this->rhandle, "{$start}{$this->csv_delim}{$end}{$this->csv_delim}{$type}\n");
+  }
 
   /**
    * Replaces ambiguous signs in $str, namely
@@ -272,6 +285,7 @@ class CSVExporter {
    * Additionally, puts quotes around the resulting string.
    *
    * @param $str  The string to be quoted and escaped
+   *
    * @return $str The quoted and escaped string
    */
   private function quote_and_escape( $str) : string {
@@ -291,18 +305,6 @@ class CSVExporter {
     $str = "\"".str_replace( "\"", "\\\"", $str)."\"";
 
     return $str;
-  }
-
-  /*
-   * Writes a relationship to a CSV file.
-   *
-   * @param start   The starting node's index
-   * @param end     The ending node's index
-   * @param type    The relationship's type
-   */
-  public function store_rel( $start, $end, $type) {
-
-    fwrite( $this->rhandle, "{$start}{$this->csv_delim}{$end}{$this->csv_delim}{$type}\n");
   }
 
   /*

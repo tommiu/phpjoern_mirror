@@ -12,6 +12,7 @@ $path = NULL; // file/folder to be parsed
 $format = CSVExporter::NEO4J_FORMAT; // format to use for export
 $nodefile = CSVExporter::NODE_FILE; // name of node file
 $relfile = CSVExporter::REL_FILE; // name of relationship file
+$scriptname = NULL; // this script's name
 
 /**
  * Parses the cli arguments.
@@ -35,7 +36,8 @@ function parse_arguments() {
   }
 
   // Remove the script name (first argument)
-  array_shift( $argv);
+  global $scriptname;
+  $scriptname = array_shift( $argv);
 
   if( count( $argv) === 0) {
     error_log( '[ERROR] Missing argument.');
@@ -123,7 +125,8 @@ function print_version() {
  */
 function print_usage() {
 
-  echo 'Usage: ./parser [options] <file|folder>', PHP_EOL;
+  global $scriptname;
+  echo 'Usage: php '.$scriptname.' [options] <file|folder>', PHP_EOL;
 }
 
 /**
@@ -201,10 +204,7 @@ function parse_dir( $path, $csvexporter, $top = true) : int {
   $found = [];
   // if the current folder finds itself interesting, we will create a
   // directory node for it and return its index
-  if( $top)
-    $dirnode = $csvexporter->store_dirnode( basename( $path));
-  else
-    $dirnode = -1;
+  $dirnode = $top ? $csvexporter->store_dirnode( basename( $path)) : -1;
 
   $dhandle = opendir( $path);
 
