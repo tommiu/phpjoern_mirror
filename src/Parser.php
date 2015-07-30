@@ -84,8 +84,11 @@ function print_help() {
  * @param $path        Path to the file
  * @param $cvsexporter A CSV exporter instance to use for exporting
  *                     the AST of the parsed file.
+ *
+ * @return The node index of the exported file node, or -1 if there
+ *         was an error.
  */
-function parse_file( $path, $csvexporter) {
+function parse_file( $path, $csvexporter) : int {
 
   $finfo = new SplFileInfo( $path);
   echo "Parsing file ", $finfo->getFilename(), PHP_EOL;
@@ -101,17 +104,84 @@ function parse_file( $path, $csvexporter) {
     //echo ast_dump( $ast), PHP_EOL;
   }
   catch( ParseError $e) {
+    $fnode = -1;
     error_log( "[ERROR] In $path: ".$e->getMessage());
   }
+
+  return $fnode;
 }
 
 /**
- * Parses and generates ASTs for all PHP files buried within a directory.
+ * Parses and generates ASTs for all PHP files buried within a
+ * directory.
  *
  * @param $path        Path to the directory
- * @param $cvsexporter A CSV exporter instance to use for exporting
+ * @param $csvexporter A CSV exporter instance to use for exporting
  *                     the ASTs of all parsed files.
+ * @param $top         Boolean indicating whether this call
+ *                     corresponds to the top-level call of the
+ *                     function. We wouldn't need this if I didn't
+ *                     insist on the root directory of a project
+ *                     getting node index 0. But, I do insist.
+ *
+ * @return If the directory corresponding to the function call finds
+ *         itself interesting, it stores a directory node for itself
+ *         and this function returns the index of that
+ *         node. Otherwise, returns -1. A directory finds itself
+ *         interesting if it contains PHP files, or if one of its
+ *         child directories finds itself interesting. -- As a special
+ *         case, the root directory of a project (corresponding to the
+ *         top-level call) always finds itself interesting and always
+ *         stores a directory node for itself.
  */
+function parse_dir( $path, $csvexporter, $top = true) : int {
+
+  // save any interesting directory/file indices in the current folder
+  $found = [];
+  // if the current folder finds itself interesting, we will create a
+  // directory node for it and return its index
+  if( $top)
+    $dirnode = $csvexporter->store_dirnode( basename( $path));
+  else
+    $dirnode = -1;
+
+  $dhandle = opendir( $path);
+
+  while( false !== ($filename = readdir( $dhandle))) {
+    $finfo = new SplFileInfo( build_path( $path, $filename));
+
+    if( $finfo->isFile() && $finfo->isReadable() && strtolower( $finfo->getExtension()) === 'php')
+      $found[] = parse_file( $finfo->getPathname(), $csvexporter);
+    else if( $finfo->isDir() && $finfo->isReadable() && $filename !== '.' && $filename !== '..')
+      if( -1 !== ($childdir = parse_dir( $finfo->getPathname(), $csvexporter, false)))
+	$found[] = $childdir;
+  }
+
+  if( !empty( $found)) {
+    if( !$top)
+      $dirnode = $csvexporter->store_dirnode( basename( $path));
+    foreach( $found as $i => $nodeindex)
+      $csvexporter->store_rel( $dirnode, $nodeindex, "DIRECTORY_OF");
+  }
+
+  closedir( $dhandle);
+
+  return $dirnode;
+}
+
+/**
+ * Builds a file path with the appropriate directory separator.
+ *
+ * @param ...$segments Unlimited number of path segments.
+ *
+ * @return The file path built from the path segments.
+ */
+function build_path( ...$segments) {
+
+  return join( DIRECTORY_SEPARATOR, $segments);
+}
+
+/*
 function parse_dir( $path, $csvexporter) {
 
   $di = new RecursiveDirectoryIterator( $path);
@@ -132,6 +202,7 @@ function parse_dir( $path, $csvexporter) {
     }
   }
 }
+*/
 
 /*
  * Main script
@@ -162,3 +233,5 @@ else {
   error_log( '[ERROR] The given path is neither a regular file nor a directory.');
   exit( 1);
 }
+
+echo "Done.", PHP_EOL;

@@ -25,13 +25,17 @@ class CSVExporter {
   /** Delimiter for arrays in CSV files */
   private $array_delim = ";";
 
-
   /** Handle for the node file */
   private $nhandle;
   /** Handle for the relationship file */
   private $rhandle;
   /** Node counter */
   private $nodecount = 0;
+
+  /** Type of file nodes */
+  const FILE = "File";
+  /** Type of directory nodes */
+  const DIR = "Directory";
 
   /**
    * Constructor, creates file handlers.
@@ -197,7 +201,7 @@ class CSVExporter {
    * @param doccomment The function's or class's doc comment
    *
    */
-  private function store_node( $type, $flags, $lineno, $code = "", $endlineno, $name, $doccomment) {
+  private function store_node( $type, $flags, $lineno, $code, $endlineno, $name, $doccomment) {
 
     fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$flags}{$this->csv_delim}{$lineno}{$this->csv_delim}{$code}{$this->csv_delim}{$endlineno}{$this->csv_delim}{$name}{$this->csv_delim}{$doccomment}\n");
     $this->nodecount++;
@@ -209,16 +213,47 @@ class CSVExporter {
    *
    * @param $filename The file's name, which will be stored under the
    *                  'name' poperty of the File node.
+   *
+   * @return The index of the stored file node.
    */
   public function store_filenode( $filename) : int {
 
+    return $this->store_fileordirnode( self::FILE, $filename);
+  }
+
+  /**
+   * Stores a directory node, increases the node counter and returns the
+   * index of the stored directory node.
+   *
+   * @param $dirname The directory's name, which will be stored under the
+   *                 'name' poperty of the Directory node.
+   *
+   * @return The index of the stored directory node.
+   */
+  public function store_dirnode( $filename) : int {
+
+    return $this->store_fileordirnode( self::DIR, $filename);
+  }
+
+  /**
+   * Internally used by store_filenode() and store_dirnode().
+   *
+   * @param $type     The type of the node to store, should be either
+   *                  self::FILE or self::DIR
+   * @param $filename The file or directory's name.
+   *
+   * @return The index of the stored node.
+   */
+  private function store_fileordirnode( $type, $filename) : int {
+
     $filename = $this->quote_and_escape( $filename);
 
-    fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}File{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$filename}{$this->csv_delim}\n");
+    fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$filename}{$this->csv_delim}\n");
 
-    $this->nodecount++;
-    return ($this->nodecount-1);
+    // return the current node index, *then* increment it
+    return $this->nodecount++;
   }
+
 
   /**
    * Replaces ambiguous signs in $str, namely
