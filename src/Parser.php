@@ -47,8 +47,8 @@ function parse_arguments() {
   $path = (string) array_pop( $argv);
 
   // Parse options
-  $longopts  = ["help", "version", "format:"];
-  $options = getopt( "hvf:", $longopts);
+  $longopts  = ["help", "version", "format:", "nodes:", "relationships:"];
+  $options = getopt( "hvf:n:r:", $longopts);
   if( $options === FALSE) {
     error_log( '[ERROR] Could not parse command line arguments.');
     return false;
@@ -70,7 +70,6 @@ function parse_arguments() {
     exit( 0);
   }
 
-
   // Format?
   if( isset( $options['format']) || isset( $options['f'])) {
     global $format;
@@ -87,7 +86,19 @@ function parse_arguments() {
       break;
     }
   }
- 
+
+  // Nodes file?
+  if( isset( $options['nodes']) || isset( $options['n'])) {
+    global $nodefile;
+    $nodefile = $options['nodes'] ?? $options['n'];
+  }
+
+  // Relationships file?
+  if( isset( $options['relationships']) || isset( $options['r'])) {
+    global $relfile;
+    $relfile = $options['relationships'] ?? $options['r'];
+  }
+
   return true;
 }
 
@@ -114,9 +125,11 @@ function print_usage() {
 function print_help() {
 
   echo 'Options:', PHP_EOL;
-  echo '  -h, --help            Display help message', PHP_EOL;
-  echo '  -v, --version         Display version information', PHP_EOL;
-  echo '  -f, --format <format> Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
+  echo '  -h, --help                 Display help message', PHP_EOL;
+  echo '  -v, --version              Display version information', PHP_EOL;
+  echo '  -f, --format <format>      Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
+  echo '  -n, --nodes <file>         Output file for nodes', PHP_EOL;
+  echo '  -r, --relationships <file> Output file for relationships', PHP_EOL;
 }
 
 /**
