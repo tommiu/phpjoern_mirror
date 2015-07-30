@@ -193,7 +193,8 @@ class CSVExporter {
    * - NULL nodes, for undefined nodes in the AST
    * - integers and floats/doubles, i.e., plain types
    * - File and Directory nodes, for files and directories,
-   *   representing the global code structure (we use store_filenode() for these)
+   *   representing the global code structure (we use store_filenode()
+   *   and store_dirnode() for these)
    *
    * @param type    The node type (mandatory)
    * @param flags   The node's flags (mandatory, but may be empty)
