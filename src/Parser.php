@@ -44,13 +44,18 @@ function parse_arguments() {
   global $path;
   $path = (string) array_pop( $argv);
 
-  // Now see if a format has been set
-  global $format;
-  $options = getopt( "f:");
-  if( $options === FALSE)
+  // Parse options
+  $longopts  = ["format:"];
+  $options = getopt( "f:", $longopts);
+  if( $options === FALSE) {
     error_log( '[ERROR] Could not parse command line arguments.');
-  else if( isset( $options['f'])) {
-    switch( $options['f']) {
+    return false;
+  }
+
+  // Format?
+  if( isset( $options['format']) || isset( $options['f'])) {
+    global $format;
+    switch( $options['format'] ?? $options['f']) {
     case "jexp":
       $format = CSVExporter::JEXP_FORMAT;
       break;
@@ -90,7 +95,7 @@ function print_usage() {
 function print_help() {
 
   echo 'Options:', PHP_EOL;
-  echo '  -f <format> Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
+  echo '  -f, --format <format> Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
 }
 
 /**
