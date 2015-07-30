@@ -45,12 +45,29 @@ function parse_arguments() {
   $path = (string) array_pop( $argv);
 
   // Parse options
-  $longopts  = ["format:"];
-  $options = getopt( "f:", $longopts);
+  $longopts  = ["help", "version", "format:"];
+  $options = getopt( "hvf:", $longopts);
   if( $options === FALSE) {
     error_log( '[ERROR] Could not parse command line arguments.');
     return false;
   }
+
+  // Help?
+  if( isset( $options['help']) || isset( $options['h'])) {
+    print_version();
+    echo PHP_EOL;
+    print_usage();
+    echo PHP_EOL;
+    print_help();
+    exit( 0);
+  }
+
+  // Version?
+  if( isset( $options['version']) || isset( $options['v'])) {
+    print_version();
+    exit( 0);
+  }
+
 
   // Format?
   if( isset( $options['format']) || isset( $options['f'])) {
@@ -95,6 +112,8 @@ function print_usage() {
 function print_help() {
 
   echo 'Options:', PHP_EOL;
+  echo '  -h, --help            Display help message', PHP_EOL;
+  echo '  -v, --version         Display version information', PHP_EOL;
   echo '  -f, --format <format> Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
 }
 
