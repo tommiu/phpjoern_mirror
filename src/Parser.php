@@ -182,29 +182,6 @@ function build_path( ...$segments) {
 }
 
 /*
-function parse_dir( $path, $csvexporter) {
-
-  $di = new RecursiveDirectoryIterator( $path);
-  $ii = new RecursiveIteratorIterator( $di);
-  $ri = new RegexIterator( $ii, '/^.+\.php$/i');
-
-  foreach( $ri as $path => $file) {
-
-    if( $file->isFile() && $file->isReadable()) {
-
-      // TODO: parse_file() will store File nodes and ASTs, great!
-      // However, we should *somehow* also reflect the directory
-      // structure, i.e., create Directory nodes here, but only for
-      // such directories which (recursively) contain .php files, and
-      // we do not want to create any Directory node twice. This will
-      // need a little bit of careful thinking.
-      parse_file( $path, $csvexporter);
-    }
-  }
-}
-*/
-
-/*
  * Main script
  */
 if( parse_arguments() === false) {

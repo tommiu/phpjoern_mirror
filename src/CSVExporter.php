@@ -349,14 +349,16 @@ class CSVExporter {
 
     // If the given $kind does not use either exclusive or combinable
     // flags, or if it does, but the given $flags did not yield any
-    // flags for the given $kind, we arrive here. Probably, this means
-    // that the given $flags was 0, otherwise this method was called
-    // with weird parameters.
-    // TODO Watch out whether $flags is ever different from 0 here!
+    // flags for the given $kind, we arrive here. In principle $flags
+    // should always be 0 at this point.
+    // TODO: for ast\AST_ARRAY_ELEM (kind=525) and ast\AST_CLOSURE_VAR
+    // (kind=2049), the flag might be 1, meaning "by-reference", but
+    // this cannot be properly formated since no appropriate names are
+    // declared in util.php. Ask Niki about that. Maybe submit patch.
     if( $flags === 0)
       return "";
     else
-      return "\"[ERROR] Unexpected flags for kind: kind=$kind and flags=$flags\"";
+      return "\"[WARNING] Unexpected flags for kind: kind=$kind and flags=$flags\"";
   }
 
 }
