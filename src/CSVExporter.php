@@ -226,7 +226,7 @@ class CSVExporter {
    */
   public function store_filenode( $filename) : int {
 
-    return $this->store_fileordirnode( self::FILE, $filename);
+    return $this->store_node( self::FILE, "", "", "", "", $this->quote_and_escape( $filename));
   }
 
   /**
@@ -240,26 +240,7 @@ class CSVExporter {
    */
   public function store_dirnode( $filename) : int {
 
-    return $this->store_fileordirnode( self::DIR, $filename);
-  }
-
-  /**
-   * Internally used by store_filenode() and store_dirnode().
-   *
-   * @param $type     The type of the node to store, should be either
-   *                  self::FILE or self::DIR
-   * @param $filename The file or directory's name.
-   *
-   * @return The index of the stored node.
-   */
-  private function store_fileordirnode( $type, $filename) : int {
-
-    $filename = $this->quote_and_escape( $filename);
-
-    fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$this->csv_delim}{$filename}{$this->csv_delim}\n");
-
-    // return the current node index, *then* increment it
-    return $this->nodecount++;
+    return $this->store_node( self::DIR, "", "", "", "", $this->quote_and_escape( $filename));
   }
 
   /*
