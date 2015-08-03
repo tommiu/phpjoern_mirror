@@ -1,4 +1,7 @@
-<?php
+<?php declare( strict_types = 1);
+
+// report on errors, except notices
+error_reporting( E_ALL & ~E_NOTICE);
 
 /**
  * This program looks for PHP files in a given directory and dumps ASTs.
@@ -8,11 +11,11 @@
 
 require 'CSVExporter.php';
 
-$path = NULL; // file/folder to be parsed
+$path = null; // file/folder to be parsed
 $format = CSVExporter::NEO4J_FORMAT; // format to use for export
 $nodefile = CSVExporter::NODE_FILE; // name of node file
 $relfile = CSVExporter::REL_FILE; // name of relationship file
-$scriptname = NULL; // this script's name
+$scriptname = null; // this script's name
 
 /**
  * Parses the cli arguments.
@@ -271,7 +274,6 @@ if( is_file( $path)) {
     exit( 1);
   }
   parse_file( $path, $csvexporter);
-  $csvexporter->__destruct();
 }
 elseif( is_dir( $path)) {
   try {
@@ -282,7 +284,6 @@ elseif( is_dir( $path)) {
     exit( 1);
   }
   parse_dir( $path, $csvexporter);
-  $csvexporter->__destruct();
 }
 else {
   error_log( '[ERROR] The given path is neither a regular file nor a directory.');

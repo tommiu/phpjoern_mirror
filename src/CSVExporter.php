@@ -1,4 +1,4 @@
-<?php
+<?php declare( strict_types = 1);
 
 // needed for the flag constants -- i.e., essentially get_flag_info()
 // used in csv_format_flags()
@@ -134,7 +134,7 @@ class CSVExporter {
       }
 
       // store node, export all children and store the relationships
-      $rootnode = $this->store_node( $nodetype, $nodeflags, $nodeline, "", $nodeendline, $nodename, $nodedoccomment);
+      $rootnode = $this->store_node( $nodetype, $nodeflags, $nodeline, null, $nodeendline, $nodename, $nodedoccomment);
 
       foreach( $ast->children as $i => $child) {
 	$childnode = $this->export( $child, $nodeline);
@@ -150,7 +150,7 @@ class CSVExporter {
     else if( is_string( $ast)) {
 
       $nodetype = gettype( $ast); // should be string
-      $rootnode = $this->store_node( $nodetype, "", $nodeline, $this->quote_and_escape( $ast));
+      $rootnode = $this->store_node( $nodetype, null, $nodeline, $this->quote_and_escape( $ast));
     }
 
     // (3) If it a plain value and more precisely null, there's no corresponding code per se, so we just print the type.
@@ -161,8 +161,8 @@ class CSVExporter {
     // a class that does not use an "extends" or "implements" statement, a function that has no return value, etc.
     else if( $ast === null) {
 
-      $nodetype = gettype( $ast); // should be NULL
-      $rootnode = $this->store_node( $nodetype, "", $nodeline);
+      $nodetype = gettype( $ast); // should be the string "NULL"
+      $rootnode = $this->store_node( $nodetype, null, $nodeline);
     }
 
     // (4) if it is a plain value but not a string and not null, cast to string and store the result as $nodecode
@@ -179,7 +179,7 @@ class CSVExporter {
 
       $nodetype = gettype( $ast);
       $nodecode = (string) $ast;
-      $rootnode = $this->store_node( $nodetype, "", $nodeline, $nodecode);
+      $rootnode = $this->store_node( $nodetype, null, $nodeline, $nodecode);
     }
 
     return $rootnode;
@@ -212,7 +212,7 @@ class CSVExporter {
    *
    * @return The index of the stored node.
    */
-  private function store_node( $type, $flags, $lineno, $code, $endlineno, $name, $doccomment) : int {
+  private function store_node( $type, $flags, $lineno, $code = null, $endlineno = null, $name = null, $doccomment = null) : int {
 
     fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$flags}{$this->csv_delim}{$lineno}{$this->csv_delim}{$code}{$this->csv_delim}{$endlineno}{$this->csv_delim}{$name}{$this->csv_delim}{$doccomment}\n");
 
@@ -231,7 +231,7 @@ class CSVExporter {
    */
   public function store_filenode( $filename) : int {
 
-    return $this->store_node( self::FILE, "", "", "", "", $this->quote_and_escape( $filename));
+      return $this->store_node( self::FILE, null, null, null, null, $this->quote_and_escape( $filename), null);
   }
 
   /**
@@ -245,7 +245,7 @@ class CSVExporter {
    */
   public function store_dirnode( $filename) : int {
 
-    return $this->store_node( self::DIR, "", "", "", "", $this->quote_and_escape( $filename));
+      return $this->store_node( self::DIR, null, null, null, null, $this->quote_and_escape( $filename), null);
   }
 
   /*
