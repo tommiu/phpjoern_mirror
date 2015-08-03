@@ -133,7 +133,7 @@ Extracting the ZIP file creates a directory lib/ with the necessary JAR files.
 Next, use the following command to create a Neo4J database directory
 graph.db/ from the two CSV files (adapt the path to batch-import):
 
-$ HEAP=6G; java -classpath "/path/to/batch-import/lib/*" -Xmx$HEAP -Xms$HEAP -Dfile.encoding=UTF-8 org.neo4j.batchimport.Importer batch.properties graph.db nodes.csv rels.csv
+$ HEAP=6G; java -classpath "/path/to/batch-import/lib/*" -Xmx$HEAP -Xms$HEAP -Dfile.encoding=UTF-8 org.neo4j.batchimport.Importer conf/batch.properties graph.db nodes.csv rels.csv
 
 Note that the format of the nodes.csv and rels.csv files expected by
 batch-import is slightly different from that expected by
