@@ -260,14 +260,27 @@ if( !file_exists( $path) || !is_readable( $path)) {
   exit( 1);
 }
 
+$csvexporter = null;
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
-  $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
+  try {
+    $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
+  }
+  catch( IOError $e) {
+    error_log( "[ERROR] ".$e->getMessage());
+    exit( 1);
+  }
   parse_file( $path, $csvexporter);
   $csvexporter->__destruct();
 }
 elseif( is_dir( $path)) {
-  $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
+  try {
+    $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
+  }
+  catch( IOError $e) {
+    error_log( "[ERROR] ".$e->getMessage());
+    exit( 1);
+  }
   parse_dir( $path, $csvexporter);
   $csvexporter->__destruct();
 }

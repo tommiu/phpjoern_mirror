@@ -1,5 +1,9 @@
 <?php
 
+// needed for the flag constants -- i.e., essentially get_flag_info()
+// used in csv_format_flags()
+require 'util.php';
+
 /**
  * This class manages the two CSV files for exporting nodes. It
  * iterates over ASTs, generates corresponding entries and writes
@@ -7,9 +11,6 @@
  *
  * @author Malte Skoruppa <skoruppa@cs.uni-saarland.de>
  */
-
-require 'util.php';
-
 class CSVExporter {
 
   /** Constant for Neo4J format (to be used with neo4j-import) */
@@ -53,10 +54,14 @@ class CSVExporter {
 
     $this->format = $format;
 
-    // TODO some error handling would be nice, e.g., file already exists,
-    // or can't be written too, etc.
-    $this->nhandle = fopen( $nodefile, "w");
-    $this->rhandle = fopen( $relfile, "w");
+    foreach( [$nodefile, $relfile] as $file)
+      if( file_exists( $file))
+	error_log( "[WARNING] $file already exists, overwriting it.");
+
+    if( false === ($this->nhandle = fopen( $nodefile, "w")))
+      throw new IOError( "There was an error opening $nodefile for writing.");
+    if( false === ($this->rhandle = fopen( $relfile, "w")))
+      throw new IOError( "There was an error opening $relfile for writing.");
 
     // if format is non-default, adapt delimiters and headers
     if( $this->format === self::JEXP_FORMAT) {
@@ -351,3 +356,8 @@ class CSVExporter {
   }
 
 }
+
+/**
+ * Custom error class for IO errors
+ */
+class IOError extends Error {}
