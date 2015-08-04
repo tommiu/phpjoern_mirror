@@ -15,7 +15,11 @@ $ cd ..
 $ ./buildconf
 $ ./configure --prefix=$HOME/php7/usr --with-config-file-path=$HOME/php7/usr/etc --enable-ast
 $ make
-$ make install
+$ make install-cli
+
+Lastly, put the file conf/php.ini bundled with php-joern to the folder
+you specified in the --with-config-file-path command line option.
+TODO setup the php.ini and commit it to the repository!
 
 
 2. Using the parser
@@ -68,6 +72,9 @@ $ ./get_test_repos.sh
 4. Installing the Neo4J graph database
 --------------------------------------
 
+4a. Installing the Neo4J server
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 We're going to import the CSV files created in section 2 into a Neo4J
 graph database. We're currently working with Neo4J Community 2.2.3,
 available from http://neo4j.com/download/other-releases/. Download and
@@ -75,6 +82,59 @@ unpack it somewhere:
 
 $ curl -O http://neo4j.com/artifact.php?name=neo4j-community-2.2.3-unix.tar.gz
 $ tar xvfz artifact.php\?name=neo4j-community-2.2.3-unix.tar.gz
+
+In the following, let $NEO4J_HOME be the directory where we unpacked
+the Neo4J tarball.
+
+
+4b. Installing the Gremlin plugin
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Additionally, we shall need the Gremlin plugin for Neo4J (The Gremlin
+plugin will be discussed more in depth in section 7b). This plugin is
+available at
+
+For Neo4J 1.x: https://github.com/neo4j-contrib/gremlin-plugin
+For Neo4J 2.x: https://github.com/thinkaurelius/neo4j-gremlin-plugin
+
+The Gremlin plugin is no longer bundled with Neo4J by default as of
+Neo4J 2.x, but can still be downloaded and added manually.
+
+To install the Gremlin plugin for Neo4J 2.2.3, proceed as follows:
+
+$ git clone https://github.com/thinkaurelius/neo4j-gremlin-plugin.git
+$ cd neo4j-gremlin-plugin/
+$ mvn clean package
+$ unzip target/neo4j-gremlin-plugin-tp2-2.2.3-server-plugin.zip -d $NEO4J_HOME/plugins/gremlin-plugin
+
+Lastly we have to register the plugin with the Neo4J server. To do so,
+add the following line to $NEO4J_HOME/conf/neo4j-server.properties:
+
+org.neo4j.server.thirdparty_jaxrs_classes=com.thinkaurelius.neo4j.plugins=/tp
+
+Then, restart the Neo4J server:
+
+$ $NEO4J_HOME/bin/neo4j restart
+
+To test that the Gremlin REST endpoint is available, issue the
+following command:
+
+$ curl -s -G http://localhost:7474/tp/gremlin/execute
+
+You should see the following output:
+{
+    "success": true
+}
+
+TODO:
+Unfortunately, the Gremlin plugin currently does not work with
+Neo4J 2.2.x :-(
+See https://github.com/thinkaurelius/neo4j-gremlin-plugin/issues/8
+Possible solutions:
+* Try to make the plugin work with Neo4J 2.2.x (non-trivial)
+* Go back to Neo4J 2.1.x for now (and then we will have to
+use batch-import)
+* Use Cypher instead of Gremlin
 
 
 5. Importing ASTs into a Neo4J graph database
@@ -90,9 +150,9 @@ this purpose.
 
 Since Neo4J 2.2, Neo4J comes with its own massively parallel and
 scalable CSV importer. The tool comes bundled with Neo4J since version
-2.2, and is invoked like so (adapt the path to neo4j):
+2.2, and is invoked like so:
 
-$ /path/to/neo4j/bin/neo4j-import --into graph.db --nodes nodes.csv --relationships rels.csv
+$ $NEO4J_HOME/bin/neo4j-import --into graph.db --nodes nodes.csv --relationships rels.csv
 
 This creates a new directory graph.db/ populated with a new database
 to be loaded by the Neo4J server. The files nodes.csv and rels.csv as
@@ -105,7 +165,7 @@ For more information, see:
 
 Note: You can configure higher Java heap sizes by choosing appropriate
 values for wrapper.java.initmemory and wrapper.java.maxmemory in
-/path/to/neo4j/conf/neo4j-wrapper.conf
+$NEO4J_HOME/conf/neo4j-wrapper.conf
 
 
 5b. Using batch-import (legacy support)
@@ -128,12 +188,14 @@ $ unzip batch_importer_22.zip
 Make sure that the version of batch-importer matches the version of
 the Neo4J database (2.2 in the above example).
 
-Extracting the ZIP file creates a directory lib/ with the necessary JAR files.
+In the following, let $JEXP_HOME be the newly created directory batch-import/.
+
+Extracting the ZIP file creates a directory $JEXP_HOME/lib/ with the necessary JAR files.
 
 Next, use the following command to create a Neo4J database directory
-graph.db/ from the two CSV files (adapt the path to batch-import):
+graph.db/ from the two CSV files:
 
-$ HEAP=6G; java -classpath "/path/to/batch-import/lib/*" -Xmx$HEAP -Xms$HEAP -Dfile.encoding=UTF-8 org.neo4j.batchimport.Importer conf/batch.properties graph.db nodes.csv rels.csv
+$ HEAP=6G; java -classpath "$JEXP_HOME/lib/*" -Xmx$HEAP -Xms$HEAP -Dfile.encoding=UTF-8 org.neo4j.batchimport.Importer conf/batch.properties graph.db nodes.csv rels.csv
 
 Note that the format of the nodes.csv and rels.csv files expected by
 batch-import is slightly different from that expected by
@@ -150,11 +212,109 @@ The file batch.properties provided with php-joern is for heap sizes of 6GB or mo
 6. Starting the Neo4J database server
 -------------------------------------
 
-Once we created a database directory graph.db/ as described in section 5,
-we can point the Neo4J server to the location of that directory in the
-configuration file /path/to/neo4j/conf/neo4j-server.properties by
-changing the variable org.neo4j.server.database.location accordingly.
+Once we created a database directory graph.db/ as described in section
+5, we can point the Neo4J server to the location of that directory in
+the configuration file $NEO4J_HOME/conf/neo4j-server.properties by
+changing the variable 'org.neo4j.server.database.location'
+accordingly.
 
 Then, we can start the server:
 
-$ /path/to/neo4j/bin/neo4j console
+$ $NEO4J_HOME/bin/neo4j console
+
+The server is then accessible at http://localhost:7474/. It offers an
+HTTP based RESTful API which can be used to query the database.
+
+The graphs previously created by the parser are weakly connected,
+directed rooted trees.
+
+The graph's root node is a node of type either 'Directory' or 'File',
+depending on whether a whole folder of some PHP project or a single
+file was parsed. In the former case, the root node represents the root
+directory of the PHP project; in the latter, it represents the parsed
+file. The parser always assigns node index 0 to the root node, which
+can be accessed in the browser at
+http://localhost:7474/db/data/node/0.
+
+
+7. Querying the database
+------------------------
+
+Two languages are available for querying the database: Cypher and
+Gremlin. The two are quite different. Cypher is a declarative language
+wherein you specify *what* to find. Gremlin is an imperative language
+that allows you to specify *how* to find something. See for instance
+http://www.quora.com/Is-Neo4j-using-Gremlin-as-its-core for a short
+discussion on the subject.
+
+
+7a. Cypher
+~~~~~~~~~~
+
+Cypher queries can be issued via Neo4j Browser, a command driven
+client which works like a web-based shell environment. This is nice
+for running some ad-hoc graph queries. Cypher uses SQL-like
+clauses. For instance, to search for all nodes of type "File"
+(representing the individual PHP files in a previously parsed folder
+of a PHP project), visit http://localhost:7474/ and issue
+
+MATCH node
+WHERE node.type = "File"
+RETURN node;
+
+Relationships are of course essential for meaningful queries. For
+instance, to find the AST root node of a file named 42.php, use
+
+MATCH (filenode)-[:FILE_OF]-(astroot)
+WHERE filenode.name = "42.php"
+RETURN astroot;
+
+This pattern can be used transitively. Say we want to find all the AST
+nodes that correspond to the functions declared in a file Parser.php,
+we would query
+
+MATCH (filenode)-[:FILE_OF]-()-[:PARENT_OF]-(astnode)
+WHERE filenode.name = "Parser.php"
+  AND astnode.type = "AST_FUNC_DECL"
+RETURN astnode;
+
+More information on Cypher can be found here:
+http://neo4j.com/docs/2.2.3/cypher-query-lang.html
+
+
+7b. Gremlin
+~~~~~~~~~~~
+
+Gremlin is a general-purpose graph traversal language and our
+preferred choice, as it offers a more fine-grained control of the
+exact traversal pattern to use (whereas the Cypher engine tries to
+find the best pattern itself). It is possible to extend the Neo4J
+RESTful API with support for Gremlin queries via the Gremlin
+plugin.
+
+See section 4b for instructions on how to install the plugin.
+
+Once a Neo4J server with the Gremlin plugin is setup (section 4), a
+graph database is imported into Neo4J (section 5), and the server
+started (section 6), we can issue queries as explained at
+https://github.com/thinkaurelius/neo4j-gremlin-plugin#examples, e.g.,
+
+$ curl -s -G --data-urlencode 'script="Hello World!"' http://localhost:7474/tp/gremlin/execute
+
+Taking up the examples from last section, we can find all nodes with
+type File using the query
+
+$ curl -s -G --data-urlencode 'script=g.V("type","File").map()' http://localhost:7474/tp/gremlin/execute
+
+
+TODO:
+* two more example scripts that actually does something interesting with the AST (as in sec 7a)
+* try to use the pyhton-joern interface for this... (can be a section of its own: "Scripting queries" or something)
+* if we do use python-joern, we probably want a better and less confusing name for our tool than php-joern...
+
+For more information on Gremlin, see
+* http://gremlin.tinkerpop.com
+* http://gremlindocs.com
+* http://sql2gremlin.com
+
+
