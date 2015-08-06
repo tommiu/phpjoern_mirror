@@ -5,3 +5,4 @@ nodes.csv
 rels.csv
 batch-import/
 graph.db/
+php_errors.log
