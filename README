@@ -19,7 +19,6 @@ $ make install-cli
 
 Lastly, put the file conf/php.ini bundled with php-joern to the folder
 you specified in the --with-config-file-path command line option.
-TODO setup the php.ini and commit it to the repository!
 
 
 2. Using the parser
@@ -30,7 +29,7 @@ as argument either a PHP file or a directory. If it is a directory,
 the parser will search for all PHP files in the given directory and
 generate an AST for each of them.
 
-For convenience (i.e., command-line lazyness), there is a bash script
+For convenience (i.e., command-line laziness), there is a bash script
 called 'parser' in this project's root directory that will execute the
 PHP interpreter on the file src/Parser.php and pass along any
 arguments. The variable PHP7 needs to be set in the script to point to
@@ -86,55 +85,29 @@ $ tar xvfz artifact.php\?name=neo4j-community-2.2.3-unix.tar.gz
 In the following, let $NEO4J_HOME be the directory where we unpacked
 the Neo4J tarball.
 
+TODO actually we'd *like* to work with Neo4J 2.2 (particularly because
+of the availability of neo4j-import), however the Gremlin plugin does
+not work with Neo4J 2.2 yet, and we have to use Neo4J 2.1 for now.
 
 4b. Installing the Gremlin plugin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Additionally, we shall need the Gremlin plugin for Neo4J (The Gremlin
 plugin will be discussed more in depth in section 7b). This plugin is
-available at
-
-For Neo4J 1.x: https://github.com/neo4j-contrib/gremlin-plugin
-For Neo4J 2.x: https://github.com/thinkaurelius/neo4j-gremlin-plugin
+available here: https://github.com/neo4j-contrib/gremlin-plugin
 
 The Gremlin plugin is no longer bundled with Neo4J by default as of
 Neo4J 2.x, but can still be downloaded and added manually.
 
-To install the Gremlin plugin for Neo4J 2.2.3, proceed as follows:
+TODO Unfortunately, as of now, Neo4J 2.2 is not supported by the
+Gremlin plugin. So we have to use Neo4J 2.1...
 
-$ git clone https://github.com/thinkaurelius/neo4j-gremlin-plugin.git
-$ cd neo4j-gremlin-plugin/
+To install the Gremlin plugin for Neo4J 2.1, proceed as follows:
+
+$ git clone https://github.com/neo4j-contrib/gremlin-plugin
+$ cd gremlin-plugin/
 $ mvn clean package
-$ unzip target/neo4j-gremlin-plugin-tp2-2.2.3-server-plugin.zip -d $NEO4J_HOME/plugins/gremlin-plugin
-
-Lastly we have to register the plugin with the Neo4J server. To do so,
-add the following line to $NEO4J_HOME/conf/neo4j-server.properties:
-
-org.neo4j.server.thirdparty_jaxrs_classes=com.thinkaurelius.neo4j.plugins=/tp
-
-Then, restart the Neo4J server:
-
-$ $NEO4J_HOME/bin/neo4j restart
-
-To test that the Gremlin REST endpoint is available, issue the
-following command:
-
-$ curl -s -G http://localhost:7474/tp/gremlin/execute
-
-You should see the following output:
-{
-    "success": true
-}
-
-TODO:
-Unfortunately, the Gremlin plugin currently does not work with
-Neo4J 2.2.x :-(
-See https://github.com/thinkaurelius/neo4j-gremlin-plugin/issues/8
-Possible solutions:
-* Try to make the plugin work with Neo4J 2.2.x (non-trivial)
-* Go back to Neo4J 2.1.x for now (and then we will have to
-use batch-import)
-* Use Cypher instead of Gremlin
+$ unzip target/neo4j-gremlin-plugin-2.1-SNAPSHOT-server-plugin.zip -d $NEO4J_HOME/plugins/gremlin-plugin
 
 
 5. Importing ASTs into a Neo4J graph database
@@ -225,8 +198,8 @@ $ $NEO4J_HOME/bin/neo4j console
 The server is then accessible at http://localhost:7474/. It offers an
 HTTP based RESTful API which can be used to query the database.
 
-The graphs previously created by the parser are weakly connected,
-directed rooted trees.
+The graph previously created by the parser is a weakly connected,
+directed rooted tree.
 
 The graph's root node is a node of type either 'Directory' or 'File',
 depending on whether a whole folder of some PHP project or a single
@@ -294,27 +267,60 @@ plugin.
 
 See section 4b for instructions on how to install the plugin.
 
+To verify that the Gremlin REST endpoint is available, issue the
+following command:
+
+$ curl localhost:7474/db/data/
+{
+  "extensions" : {
+    "GremlinPlugin" : {
+      "execute_script" : "http://localhost:7474/db/data/ext/GremlinPlugin/graphdb/execute_script"
+    }
+  },
+...
+}
+
 Once a Neo4J server with the Gremlin plugin is setup (section 4), a
 graph database is imported into Neo4J (section 5), and the server
-started (section 6), we can issue queries as explained at
-https://github.com/thinkaurelius/neo4j-gremlin-plugin#examples, e.g.,
+started (section 6), we can issue queries by sending appropriate POST
+requests to the Gremlin REST endpoint, e.g.,
 
-$ curl -s -G --data-urlencode 'script="Hello World!"' http://localhost:7474/tp/gremlin/execute
+$ curl -v --data-urlencode 'script="Hello World!"' http://localhost:7474/db/data/ext/GremlinPlugin/graphdb/execute_script
 
 Taking up the examples from last section, we can find all nodes with
 type File using the query
 
-$ curl -s -G --data-urlencode 'script=g.V("type","File").map()' http://localhost:7474/tp/gremlin/execute
+$ curl -v --data-urlencode 'script=g.V("type","File").map()' http://localhost:7474/db/data/ext/GremlinPlugin/graphdb/execute_script
 
+To find the AST root node of a file named 42.php, use
 
-TODO:
-* two more example scripts that actually does something interesting with the AST (as in sec 7a)
-* try to use the pyhton-joern interface for this... (can be a section of its own: "Scripting queries" or something)
-* if we do use python-joern, we probably want a better and less confusing name for our tool than php-joern...
+$ curl -v --data-urlencode 'script=g.V("type","File").has("name","42.php").out("FILE_OF").map()' http://localhost:7474/db/data/ext/GremlinPlugin/graphdb/execute_script
+
+Following paths is particularly beautiful in Gremlin. Finding all the
+AST nodes that correspond to the functions declared in a file
+Parser.php is as simple as
+
+$ curl -v --data-urlencode 'script=g.V("type","File").has("name", "Parser.php").out("FILE_OF").out("PARENT_OF").has("type","AST_FUNC_DECL").map()' http://localhost:7474/db/data/ext/GremlinPlugin/graphdb/execute_script
 
 For more information on Gremlin, see
 * http://gremlin.tinkerpop.com
 * http://gremlindocs.com
 * http://sql2gremlin.com
 
+
+8. Scripting queries
+--------------------
+
+Using curl as above quickly gets unwieldy for larger queries. It is
+more convenient to be able to script such queries from within a
+scripting language that provides methods to perform Cypher or Gremlin
+requests to the Neo4J server's REST API as above. For this purpose, we
+use the tool python-joern:
+http://joern.readthedocs.org/en/latest/access.html
+
+
+
+TODO:
+* try to use pyhton-joern for this, and continue here
+* if we do use python-joern, we probably want a better and less confusing name for our tool than php-joern :p
 
