@@ -105,7 +105,7 @@ Gremlin plugin. So we have to use Neo4J 2.1...
 To install the Gremlin plugin for Neo4J 2.1, proceed as follows:
 
 $ git clone https://github.com/neo4j-contrib/gremlin-plugin
-$ cd gremlin-plugin/
+$ cd gremlin-plugin
 $ mvn clean package
 $ unzip target/neo4j-gremlin-plugin-2.1-SNAPSHOT-server-plugin.zip -d $NEO4J_HOME/plugins/gremlin-plugin
 
@@ -305,6 +305,7 @@ $ curl -v --data-urlencode 'script=g.V("type","File").has("name", "Parser.php").
 For more information on Gremlin, see
 * http://gremlin.tinkerpop.com
 * http://gremlindocs.com
+* http://tinkerpop.incubator.apache.org/docs/
 * http://sql2gremlin.com
 
 
@@ -318,9 +319,16 @@ requests to the Neo4J server's REST API as above. For this purpose, we
 use the tool python-joern:
 http://joern.readthedocs.org/en/latest/access.html
 
+We're currently using a port of python-joern for PHPJoern. Get it like so:
 
+$ git clone ssh://git@service.cispa.uni-saarland.de:2222/python-joern.git
+
+Now switch to the branch portPHPJoern:
+
+$ cd python-joern
+$ git checkout portPHPJoern
 
 TODO:
-* try to use pyhton-joern for this, and continue here
-* if we do use python-joern, we probably want a better and less confusing name for our tool than php-joern :p
+* work on the PHPJoern port for pyhton-joern, and continue here
+
 

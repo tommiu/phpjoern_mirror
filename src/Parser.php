@@ -273,6 +273,131 @@ function parse_dir( $path, $csvexporter, $top = true) : int {
 }
 
 /**
+ * Parses and generates ASTs for all PHP files buried within a
+ * directory, creating a pair of nodes/relationships files for each
+ * found function/method while reflecting the directory structure of
+ * the directory to parse.
+ *
+ * @param $path   Path to the directory
+ * @param $outdir Path to the output directory for the CSV files
+ *                representing the functions/methods
+ */
+function parse_dir_functions( $path, $outdir) {
+
+  /*
+    TODO:
+    - traverse directory, similar as in parse_dir()
+    - but this time, reflect directory structure by creating
+      corresponding directories instead of creating directory/file
+      nodes within a CSV file
+    - for each found file, call parse_file_functions() with a new
+      $outdir, namely, reflecting the original directory structure but
+      in $outdir
+   */
+
+  error_log( "The 'functions' mode is not yet implemented for directories.");
+  error_log( "Fatal error. Aborting.");
+  exit( 1);
+}
+
+/**
+ * Parses and generates ASTs for each function/method of a single file.
+ *
+ * @param $path   Path to the file
+ * @param $outdir Path to the output directory for the CSV files
+ *                representing the functions/methods
+ */
+function parse_file_functions( $path, $outdir) {
+
+  $finfo = new SplFileInfo( $path);
+  echo "Parsing file ", $finfo->getPathname(), PHP_EOL;
+
+  try {
+    $ast = ast\parse_file( $path);
+
+    // The above may throw a ParseError. We only export to CSV if that
+    // didn't happen.
+    export_functions( $ast, $outdir, $finfo->getBasename());
+    //echo ast_dump( $ast), PHP_EOL;
+  }
+  catch( ParseError $e) {
+    error_log( "[ERROR] In $path: ".$e->getMessage());
+  }
+}
+
+/**
+ * Traverses an AST, and exports each function node it finds into a
+ * different pair of node/relationship files in $outdir. For each
+ * function, the corresponding pair of files will be saved in $outdir
+ * and they will be named
+ * {nodes,rels}_$filename{_class_$classname_method || _function}_$functionname.csv
+ *
+ * @param $ast       The AST to traverse
+ * @param $outdir    Path to the output directory for the CSV files
+ * @param $filename  The filename of the file that the AST was built from
+ * @param $nodecount As we create running node indices throughout all
+ *                   created node files, this variable keeps track of the
+ *                   next index to create.
+ * @param $classname When recursing in this function, and the current
+ *                   traversal is below a class node, the name of that class
+ *
+ * @return The possibly nodecount after the recursive call.
+ */
+function export_functions( $ast, $outdir, $filename, $nodecount = 0, $classname = null) : int {
+
+  if( $ast instanceof ast\Node) {
+
+    $nodetype = ast\get_kind_name( $ast->kind);
+
+    // TODO do something about closures too? i.e., AST_CLOSURE nodes
+    if( $nodetype === "AST_FUNC_DECL" || $nodetype === "AST_METHOD") {
+
+      if( $nodetype === "AST_FUNC_DECL") {
+	$nodefile = build_path( $outdir, "nodes_".$filename."_function_".$ast->name.".csv");
+	$relfile = build_path( $outdir, "rels_".$filename."_function_".$ast->name.".csv");
+      }
+      elseif( $nodetype === "AST_METHOD") {
+	$nodefile = build_path( $outdir, "nodes_".$filename."_class_".$classname."_method_".$ast->name.".csv");
+	$relfile = build_path( $outdir, "rels_".$filename."_class_".$classname."_method_".$ast->name.".csv");
+      }
+
+      $csvexporter = null;
+      try {
+	global $format;
+	$csvexporter = new CSVExporter( $format, $nodefile, $relfile, $nodecount);
+	$csvexporter->export( $ast);
+	$nodecount = $csvexporter->getNodeCount();
+      }
+      catch( IOError $e) {
+	error_log( "[ERROR] ".$e->getMessage());
+	exit( 1);
+      }
+    }
+
+    // For other types of nodes, we just don't do anything at all,
+    // except for recursing and continuing our search.  Such nodes
+    // include, for example, AST_STMT_LIST which are normally at the
+    // very root of an AST parsed from a file, but also, for example,
+    // any top-level statements under it.
+    else {
+      // if we're looking at a class, save the name for recursing
+      if( $nodetype === "AST_CLASS")
+	$classname = $ast->name;
+
+      foreach( $ast->children as $i => $child) {
+	$nodecount = export_functions( $child, $outdir, $filename, $nodecount, $classname);
+      }
+    }
+  }
+  // For non-nodes (i.e., not instances of ast\Node), we don't do anything.
+  // Such nodes include children of non-function/method nodes, for example,
+  // the name of a global variable within a top-level variable declaration/assignment,
+  // represented as a string.
+
+  return $nodecount;
+}
+
+/**
  * Builds a file path with the appropriate directory separator.
  *
  * @param ...$segments Unlimited number of path segments.
@@ -300,16 +425,28 @@ if( !file_exists( $path) || !is_readable( $path)) {
   exit( 1);
 }
 
-$csvexporter = null;
+if( $mode === FUNCTIONS_MODE) {
+  // create $outdir
+  if( !file_exists( $outdir)) {
+    if( !mkdir( $outdir, 0755, true)) {
+      error_log( '[ERROR] Could not create output directory '.$outdir.".");
+      exit( 1);
+    }
+  }
+  else {
+    error_log( '[WARNING] Directory '.$outdir.' already exists.');
+  }
+}
+
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
   // functions mode
   if( $mode === FUNCTIONS_MODE) {
-    error_log( "MODE NOT IMPLEMENTED");
-    exit( 1);
+    parse_file_functions( $path, $outdir);
   }
   // complete mode
   else {
+    $csvexporter = null;
     try {
       $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
     }
@@ -323,11 +460,11 @@ if( is_file( $path)) {
 elseif( is_dir( $path)) {
   // functions mode
   if( $mode === FUNCTIONS_MODE) {
-    error_log( "MODE NOT IMPLEMENTED");
-    exit( 1);
+    parse_dir_functions( $path, $outdir);
   }
   // complete mode
   else {
+    $csvexporter = null;
     try {
       $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
     }

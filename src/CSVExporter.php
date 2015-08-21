@@ -46,13 +46,16 @@ class CSVExporter {
   /**
    * Constructor, creates file handlers.
    *
-   * @param $format   Format to use for export (neo4j or jexp)
-   * @param $nodefile Name of the nodes file
-   * @param $relfile  Name of the relationships file
+   * @param $format     Format to use for export (neo4j or jexp)
+   * @param $nodefile   Name of the nodes file
+   * @param $relfile    Name of the relationships file
+   * @param $startcount *Once* when creating the CSVExporter instance,
+   *                    the starting node index may be chosen. Defaults to 0.
    */
-  public function __construct( $format = self::NEO4J_FORMAT, $nodefile = self::NODE_FILE, $relfile = self::REL_FILE) {
+  public function __construct( $format = self::NEO4J_FORMAT, $nodefile = self::NODE_FILE, $relfile = self::REL_FILE, $startcount = 0) {
 
     $this->format = $format;
+    $this->nodecount = $startcount;
 
     foreach( [$nodefile, $relfile] as $file)
       if( file_exists( $file))
@@ -355,6 +358,15 @@ class CSVExporter {
       return "";
     else
       return "\"[WARNING] Unexpected flags for kind: kind=$kind and flags=$flags\"";
+  }
+
+  /**
+   * Returns the number of nodes created so far.
+   *
+   * @return The number of nodes created so far.
+   */
+  public function getNodeCount() : int {
+    return $this->nodecount;
   }
 
 }
