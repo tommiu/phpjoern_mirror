@@ -11,10 +11,20 @@ error_reporting( E_ALL & ~E_NOTICE);
 
 require 'CSVExporter.php';
 
+/** Constant for "complete" mode */
+const COMPLETE_MODE = 0;
+/** Constant for "functions" mode */
+const FUNCTIONS_MODE = 1;
+
+/** Default name of output directory when in "functions" mode */
+const OUTPUT_DIR = "phpjoern.astdump";
+
 $path = null; // file/folder to be parsed
+$mode = COMPLETE_MODE; // parsing mode
 $format = CSVExporter::NEO4J_FORMAT; // format to use for export
-$nodefile = CSVExporter::NODE_FILE; // name of node file
-$relfile = CSVExporter::REL_FILE; // name of relationship file
+$nodefile = CSVExporter::NODE_FILE; // name of node file when in "complete" mode
+$relfile = CSVExporter::REL_FILE; // name of relationship file when in "complete" mode
+$outdir = OUTPUT_DIR; // name of output directory for ASTs when in "functions" mode
 $scriptname = null; // this script's name
 
 /**
@@ -52,8 +62,8 @@ function parse_arguments() {
   $path = (string) array_pop( $argv);
 
   // Parse options
-  $longopts  = ["help", "version", "format:", "nodes:", "relationships:"];
-  $options = getopt( "hvf:n:r:", $longopts);
+  $longopts  = ["help", "version", "mode:", "format:", "nodes:", "relationships:", "directory:"];
+  $options = getopt( "hvm:f:n:r:d:", $longopts);
   if( $options === FALSE) {
     error_log( '[ERROR] Could not parse command line arguments.');
     return false;
@@ -73,6 +83,23 @@ function parse_arguments() {
   if( isset( $options['version']) || isset( $options['v'])) {
     print_version();
     exit( 0);
+  }
+
+  // Mode?
+  if( isset( $options['mode']) || isset( $options['m'])) {
+    global $mode;
+    switch( $options['mode'] ?? $options['m']) {
+    case "complete":
+      $mode = COMPLETE_MODE;
+      break;
+    case "functions":
+      $mode = FUNCTIONS_MODE;
+      break;
+    default:
+      error_log( "[WARNING] Unknown mode '{$options['m']}', using complete mode.");
+      $mode = COMPLETE_MODE;
+      break;
+    }
   }
 
   // Format?
@@ -104,6 +131,12 @@ function parse_arguments() {
     $relfile = $options['relationships'] ?? $options['r'];
   }
 
+  // Output directory?
+  if( isset( $options['directory']) || isset( $options['d'])) {
+    global $outdir;
+    $outdir = $options['directory'] ?? $options['d'];
+  }
+
   return true;
 }
 
@@ -120,7 +153,7 @@ function print_version() {
       if( file_exists( ".git/{$matches[1]}"))
 	$version = substr( file_get_contents( ".git/{$matches[1]}"), 0, 7);
 
-  echo "php-joern parser utility, commit {$version}", PHP_EOL;
+  echo "PHPJoern parser utility, commit {$version}", PHP_EOL;
 }
 
 /**
@@ -140,9 +173,13 @@ function print_help() {
   echo 'Options:', PHP_EOL;
   echo '  -h, --help                 Display help message', PHP_EOL;
   echo '  -v, --version              Display version information', PHP_EOL;
+  echo '  -m, --mode <mode>          Parsing mode: either generate a single AST for a complete project or file', PHP_EOL;
+  echo '                             ("complete", default), or one AST per function/method ("functions")', PHP_EOL;
   echo '  -f, --format <format>      Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
-  echo '  -n, --nodes <file>         Output file for nodes', PHP_EOL;
-  echo '  -r, --relationships <file> Output file for relationships', PHP_EOL;
+  echo '  -n, --nodes <file>         Output file for nodes when in "complete" mode', PHP_EOL;
+  echo '  -r, --relationships <file> Output file for relationships when in "complete" mode', PHP_EOL;
+  echo '  -d, --directory <dir>      Output directory for node/relationship files when in "functions" mode,', PHP_EOL;
+  echo '                             defaults to "'.OUTPUT_DIR.'"', PHP_EOL;
 }
 
 /**
@@ -266,24 +303,40 @@ if( !file_exists( $path) || !is_readable( $path)) {
 $csvexporter = null;
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
-  try {
-    $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
-  }
-  catch( IOError $e) {
-    error_log( "[ERROR] ".$e->getMessage());
+  // functions mode
+  if( $mode === FUNCTIONS_MODE) {
+    error_log( "MODE NOT IMPLEMENTED");
     exit( 1);
   }
-  parse_file( $path, $csvexporter);
+  // complete mode
+  else {
+    try {
+      $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
+    }
+    catch( IOError $e) {
+      error_log( "[ERROR] ".$e->getMessage());
+      exit( 1);
+    }
+    parse_file( $path, $csvexporter);
+  }
 }
 elseif( is_dir( $path)) {
-  try {
-    $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
-  }
-  catch( IOError $e) {
-    error_log( "[ERROR] ".$e->getMessage());
+  // functions mode
+  if( $mode === FUNCTIONS_MODE) {
+    error_log( "MODE NOT IMPLEMENTED");
     exit( 1);
   }
-  parse_dir( $path, $csvexporter);
+  // complete mode
+  else {
+    try {
+      $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
+    }
+    catch( IOError $e) {
+      error_log( "[ERROR] ".$e->getMessage());
+      exit( 1);
+    }
+    parse_dir( $path, $csvexporter);
+  }
 }
 else {
   error_log( '[ERROR] The given path is neither a regular file nor a directory.');
