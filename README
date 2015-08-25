@@ -15,7 +15,7 @@ $ cd ..
 $ ./buildconf
 $ ./configure --prefix=$HOME/php7/usr --with-config-file-path=$HOME/php7/usr/etc --enable-ast
 $ make
-$ make install-cli
+$ make install
 
 Lastly, put the file conf/php.ini bundled with php-joern to the folder
 you specified in the --with-config-file-path command line option.
