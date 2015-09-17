@@ -27,7 +27,7 @@ function perform_query1( $firstname, $lastname) {
   $query = "SELECT firstname, lastname, age FROM friends 
     WHERE firstname='$firstname' AND lastname='$lastname'";
   
-  echo "Whole query:", PHP_EOL, $query, PHP_EOL;
+  echo "Query 1:", PHP_EOL, $query, PHP_EOL;
 
   // perform query
   $result = mysql_query($query);
@@ -49,7 +49,7 @@ function perform_query2( $firstname, $lastname) {
   $query2 = "SELECT firstname, lastname, age FROM friends 
     WHERE firstname='".$firstname."' AND lastname='".$lastname."'";
   
-  echo "Whole query:", PHP_EOL, $query2, PHP_EOL;
+  echo "Query 2:", PHP_EOL, $query2, PHP_EOL;
 
   // perform query (let's use Postgres instead... this file won't run, but the AST doesn't mind)
   $result = pg_query($query2);
@@ -74,7 +74,7 @@ function perform_query3( $firstname, $lastname) {
   $query3 .= $lastname;
   $query3 .= "'";
   
-  echo "Whole query:", PHP_EOL, $query3, PHP_EOL;
+  echo "Query 3:", PHP_EOL, $query3, PHP_EOL;
 
   // perform query (let's use SQlite instead... this file won't run, but the AST doesn't mind)
   $result = sqlite_query($query3);
@@ -95,7 +95,7 @@ function perform_query4() {
   $query4 = "SELECT firstname, lastname, age FROM friends 
     WHERE firstname='fred' AND lastname='fox'";
   
-  echo "Whole query:", PHP_EOL, $query4, PHP_EOL;
+  echo "Query 4:", PHP_EOL, $query4, PHP_EOL;
 
   // perform query
   $result = mysql_query($query4);
@@ -104,6 +104,44 @@ function perform_query4() {
   if( !$result) {
     $message  = 'Invalid query: ' . mysql_error() . PHP_EOL;
     $message .= 'Whole query: ' . $query4 . PHP_EOL;
+    die( $message);
+  }
+
+  return $result;
+}
+
+// perform a query with user-supplied input (VULNERABLE!)
+// using AST_ENCAPS_LIST
+function perform_query5( $firstname, $lastname) {
+
+  echo "Query 5:", PHP_EOL;
+
+  // perform query
+  $result = mysql_query("SELECT firstname, lastname, age FROM friends 
+    WHERE firstname='$firstname' AND lastname='$lastname'");
+  
+  // check result
+  if( !$result) {
+    $message  = 'Invalid query: ' . mysql_error() . PHP_EOL;
+    die( $message);
+  }
+
+  return $result;
+}
+
+// perform a query with user-supplied input (VULNERABLE!)
+// using AST_BINARY_OP
+function perform_query6( $firstname, $lastname) {
+
+  echo "Query 6:", PHP_EOL;
+
+  // perform query
+  $result = mysql_query("SELECT firstname, lastname, age FROM friends 
+    WHERE firstname='".$firstname."' AND lastname='".$lastname."'");
+  
+  // check result
+  if( !$result) {
+    $message  = 'Invalid query: ' . mysql_error() . PHP_EOL;
     die( $message);
   }
 
@@ -129,6 +167,7 @@ while( $row = mysql_fetch_assoc( $result)) {
 }
 echo PHP_EOL;
 
+/*
 // Using perform_query2()
 $result = perform_query2( "fred", "fox");
 echo "Result:", PHP_EOL;
@@ -148,9 +187,30 @@ while( $row = mysql_fetch_assoc( $result)) {
     $row['age'], PHP_EOL;
 }
 echo PHP_EOL;
+*/
 
 // Using perform_query4()
 $result = perform_query4();
+echo "Result:", PHP_EOL;
+while( $row = mysql_fetch_assoc( $result)) {
+  echo $row['firstname'], "\t|\t",
+    $row['lastname'], "\t|\t",
+    $row['age'], PHP_EOL;
+}
+echo PHP_EOL;
+
+// Using perform_query5()
+$result = perform_query5( "fred", "fox");
+echo "Result:", PHP_EOL;
+while( $row = mysql_fetch_assoc( $result)) {
+  echo $row['firstname'], "\t|\t",
+    $row['lastname'], "\t|\t",
+    $row['age'], PHP_EOL;
+}
+echo PHP_EOL;
+
+// Using perform_query6()
+$result = perform_query6( "fred", "fox");
 echo "Result:", PHP_EOL;
 while( $row = mysql_fetch_assoc( $result)) {
   echo $row['firstname'], "\t|\t",
