@@ -1,7 +1,7 @@
 #!/bin/bash
 
-PHP7=$HOME/bin/php
-#PHP7=$HOME/php7/usr/bin/php
+if [ -z "$PHP7" ]; then
+    PHP7=$HOME/bin/php
+fi
 
 $PHP7 ./src/Parser.php "$@"
-
