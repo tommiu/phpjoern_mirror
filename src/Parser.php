@@ -11,20 +11,10 @@ error_reporting( E_ALL & ~E_NOTICE);
 
 require 'CSVExporter.php';
 
-/** Constant for "complete" mode */
-const COMPLETE_MODE = 0;
-/** Constant for "functions" mode */
-const FUNCTIONS_MODE = 1;
-
-/** Default name of output directory when in "functions" mode */
-const OUTPUT_DIR = "phpjoern.astdump";
-
 $path = null; // file/folder to be parsed
-$mode = COMPLETE_MODE; // parsing mode
 $format = CSVExporter::NEO4J_FORMAT; // format to use for export
-$nodefile = CSVExporter::NODE_FILE; // name of node file when in "complete" mode
-$relfile = CSVExporter::REL_FILE; // name of relationship file when in "complete" mode
-$outdir = OUTPUT_DIR; // name of output directory for ASTs when in "functions" mode
+$nodefile = CSVExporter::NODE_FILE; // name of node file
+$relfile = CSVExporter::REL_FILE; // name of relationship file
 $scriptname = null; // this script's name
 
 /**
@@ -62,8 +52,8 @@ function parse_arguments() {
   $path = (string) array_pop( $argv);
 
   // Parse options
-  $longopts  = ["help", "version", "mode:", "format:", "nodes:", "relationships:", "directory:"];
-  $options = getopt( "hvm:f:n:r:d:", $longopts);
+  $longopts  = ["help", "version", "format:", "nodes:", "relationships:"];
+  $options = getopt( "hvf:n:r:", $longopts);
   if( $options === FALSE) {
     error_log( '[ERROR] Could not parse command line arguments.');
     return false;
@@ -83,23 +73,6 @@ function parse_arguments() {
   if( isset( $options['version']) || isset( $options['v'])) {
     print_version();
     exit( 0);
-  }
-
-  // Mode?
-  if( isset( $options['mode']) || isset( $options['m'])) {
-    global $mode;
-    switch( $options['mode'] ?? $options['m']) {
-    case "complete":
-      $mode = COMPLETE_MODE;
-      break;
-    case "functions":
-      $mode = FUNCTIONS_MODE;
-      break;
-    default:
-      error_log( "[WARNING] Unknown mode '{$options['m']}', using complete mode.");
-      $mode = COMPLETE_MODE;
-      break;
-    }
   }
 
   // Format?
@@ -129,12 +102,6 @@ function parse_arguments() {
   if( isset( $options['relationships']) || isset( $options['r'])) {
     global $relfile;
     $relfile = $options['relationships'] ?? $options['r'];
-  }
-
-  // Output directory?
-  if( isset( $options['directory']) || isset( $options['d'])) {
-    global $outdir;
-    $outdir = $options['directory'] ?? $options['d'];
   }
 
   return true;
@@ -173,13 +140,9 @@ function print_help() {
   echo 'Options:', PHP_EOL;
   echo '  -h, --help                 Display help message', PHP_EOL;
   echo '  -v, --version              Display version information', PHP_EOL;
-  echo '  -m, --mode <mode>          Parsing mode: either generate a single AST for a complete project or file', PHP_EOL;
-  echo '                             ("complete", default), or one AST per function/method ("functions")', PHP_EOL;
   echo '  -f, --format <format>      Format to use for the CSV files: either "neo4j" (default) or "jexp"', PHP_EOL;
-  echo '  -n, --nodes <file>         Output file for nodes when in "complete" mode', PHP_EOL;
-  echo '  -r, --relationships <file> Output file for relationships when in "complete" mode', PHP_EOL;
-  echo '  -d, --directory <dir>      Output directory for node/relationship files when in "functions" mode,', PHP_EOL;
-  echo '                             defaults to "'.OUTPUT_DIR.'"', PHP_EOL;
+  echo '  -n, --nodes <file>         Output file for nodes', PHP_EOL;
+  echo '  -r, --relationships <file> Output file for relationships', PHP_EOL;
 }
 
 /**
@@ -273,131 +236,6 @@ function parse_dir( $path, $csvexporter, $top = true) : int {
 }
 
 /**
- * Parses and generates ASTs for all PHP files buried within a
- * directory, creating a pair of nodes/relationships files for each
- * found function/method while reflecting the directory structure of
- * the directory to parse.
- *
- * @param $path   Path to the directory
- * @param $outdir Path to the output directory for the CSV files
- *                representing the functions/methods
- */
-function parse_dir_functions( $path, $outdir) {
-
-  /*
-    TODO:
-    - traverse directory, similar as in parse_dir()
-    - but this time, reflect directory structure by creating
-      corresponding directories instead of creating directory/file
-      nodes within a CSV file
-    - for each found file, call parse_file_functions() with a new
-      $outdir, namely, reflecting the original directory structure but
-      in $outdir
-   */
-
-  error_log( "The 'functions' mode is not yet implemented for directories.");
-  error_log( "Fatal error. Aborting.");
-  exit( 1);
-}
-
-/**
- * Parses and generates ASTs for each function/method of a single file.
- *
- * @param $path   Path to the file
- * @param $outdir Path to the output directory for the CSV files
- *                representing the functions/methods
- */
-function parse_file_functions( $path, $outdir) {
-
-  $finfo = new SplFileInfo( $path);
-  echo "Parsing file ", $finfo->getPathname(), PHP_EOL;
-
-  try {
-    $ast = ast\parse_file( $path);
-
-    // The above may throw a ParseError. We only export to CSV if that
-    // didn't happen.
-    export_functions( $ast, $outdir, $finfo->getBasename());
-    //echo ast_dump( $ast), PHP_EOL;
-  }
-  catch( ParseError $e) {
-    error_log( "[ERROR] In $path: ".$e->getMessage());
-  }
-}
-
-/**
- * Traverses an AST, and exports each function node it finds into a
- * different pair of node/relationship files in $outdir. For each
- * function, the corresponding pair of files will be saved in $outdir
- * and they will be named
- * {nodes,rels}_$filename{_class_$classname_method || _function}_$functionname.csv
- *
- * @param $ast       The AST to traverse
- * @param $outdir    Path to the output directory for the CSV files
- * @param $filename  The filename of the file that the AST was built from
- * @param $nodecount As we create running node indices throughout all
- *                   created node files, this variable keeps track of the
- *                   next index to create.
- * @param $classname When recursing in this function, and the current
- *                   traversal is below a class node, the name of that class
- *
- * @return The possibly nodecount after the recursive call.
- */
-function export_functions( $ast, $outdir, $filename, $nodecount = 0, $classname = null) : int {
-
-  if( $ast instanceof ast\Node) {
-
-    $nodetype = ast\get_kind_name( $ast->kind);
-
-    // TODO do something about closures too? i.e., AST_CLOSURE nodes
-    if( $nodetype === "AST_FUNC_DECL" || $nodetype === "AST_METHOD") {
-
-      if( $nodetype === "AST_FUNC_DECL") {
-	$nodefile = build_path( $outdir, "nodes_".$filename."_function_".$ast->name.".csv");
-	$relfile = build_path( $outdir, "rels_".$filename."_function_".$ast->name.".csv");
-      }
-      elseif( $nodetype === "AST_METHOD") {
-	$nodefile = build_path( $outdir, "nodes_".$filename."_class_".$classname."_method_".$ast->name.".csv");
-	$relfile = build_path( $outdir, "rels_".$filename."_class_".$classname."_method_".$ast->name.".csv");
-      }
-
-      $csvexporter = null;
-      try {
-	global $format;
-	$csvexporter = new CSVExporter( $format, $nodefile, $relfile, $nodecount);
-	$csvexporter->export( $ast);
-	$nodecount = $csvexporter->getNodeCount();
-      }
-      catch( IOError $e) {
-	error_log( "[ERROR] ".$e->getMessage());
-	exit( 1);
-      }
-    }
-
-    // For other types of nodes, we just don't do anything at all,
-    // except for recursing and continuing our search.  Such nodes
-    // include, for example, AST_STMT_LIST which are normally at the
-    // very root of an AST parsed from a file, but also, for example,
-    // any top-level statements under it.
-    else {
-      // if we're looking at a class, save the name for recursing
-      if( $nodetype === "AST_CLASS")
-	$classname = $ast->name;
-
-      foreach( $ast->children as $i => $child) {
-	$nodecount = export_functions( $child, $outdir, $filename, $nodecount, $classname);
-      }
-    }
-  }
-  // For non-nodes (i.e., not instances of ast\Node), we don't do anything.
-  // Such nodes include children of non-function/method nodes, for example,
-  // the name of a global variable within a top-level variable declaration/assignment,
-  // represented as a string.
-
-  return $nodecount;
-}
-
-/**
  * Builds a file path with the appropriate directory separator.
  *
  * @param ...$segments Unlimited number of path segments.
@@ -425,55 +263,27 @@ if( !file_exists( $path) || !is_readable( $path)) {
   exit( 1);
 }
 
-if( $mode === FUNCTIONS_MODE) {
-  // create $outdir
-  if( !file_exists( $outdir)) {
-    if( !mkdir( $outdir, 0755, true)) {
-      error_log( '[ERROR] Could not create output directory '.$outdir.".");
-      exit( 1);
-    }
-  }
-  else {
-    error_log( '[WARNING] Directory '.$outdir.' already exists.');
-  }
-}
-
+$csvexporter = null;
 // Determine whether source is a file or a directory
 if( is_file( $path)) {
-  // functions mode
-  if( $mode === FUNCTIONS_MODE) {
-    parse_file_functions( $path, $outdir);
+  try {
+    $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
   }
-  // complete mode
-  else {
-    $csvexporter = null;
-    try {
-      $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
-    }
-    catch( IOError $e) {
-      error_log( "[ERROR] ".$e->getMessage());
-      exit( 1);
-    }
-    parse_file( $path, $csvexporter);
+  catch( IOError $e) {
+    error_log( "[ERROR] ".$e->getMessage());
+    exit( 1);
   }
+  parse_file( $path, $csvexporter);
 }
 elseif( is_dir( $path)) {
-  // functions mode
-  if( $mode === FUNCTIONS_MODE) {
-    parse_dir_functions( $path, $outdir);
+  try {
+    $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
   }
-  // complete mode
-  else {
-    $csvexporter = null;
-    try {
-      $csvexporter = new CSVExporter( $format, $nodefile, $relfile);
-    }
-    catch( IOError $e) {
-      error_log( "[ERROR] ".$e->getMessage());
-      exit( 1);
-    }
-    parse_dir( $path, $csvexporter);
+  catch( IOError $e) {
+    error_log( "[ERROR] ".$e->getMessage());
+    exit( 1);
   }
+  parse_dir( $path, $csvexporter);
 }
 else {
   error_log( '[ERROR] The given path is neither a regular file nor a directory.');
