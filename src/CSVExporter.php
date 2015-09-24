@@ -71,11 +71,11 @@ class CSVExporter {
       $this->csv_delim = "\t";
       $this->array_delim = ",";
 
-      fwrite( $this->nhandle, "index:int{$this->csv_delim}type{$this->csv_delim}flags:string_array{$this->csv_delim}lineno:int{$this->csv_delim}code{$this->csv_delim}childnum:int{$this->csv_delim}endlineno:int{$this->csv_delim}name{$this->csv_delim}doccomment\n");
+      fwrite( $this->nhandle, "index:int{$this->csv_delim}type{$this->csv_delim}flags:string_array{$this->csv_delim}lineno:int{$this->csv_delim}code{$this->csv_delim}childnum:int{$this->csv_delim}funcid:int{$this->csv_delim}endlineno:int{$this->csv_delim}name{$this->csv_delim}doccomment\n");
       fwrite( $this->rhandle, "start{$this->csv_delim}end{$this->csv_delim}type\n");
     }
     else {
-      fwrite( $this->nhandle, "nodeId:ID{$this->csv_delim}type{$this->csv_delim}flags:string[]{$this->csv_delim}lineno:int{$this->csv_delim}code{$this->csv_delim}childnum:int{$this->csv_delim}endlineno:int{$this->csv_delim}name{$this->csv_delim}doccomment\n");
+      fwrite( $this->nhandle, "nodeId:ID{$this->csv_delim}type{$this->csv_delim}flags:string[]{$this->csv_delim}lineno:int{$this->csv_delim}code{$this->csv_delim}childnum:int{$this->csv_delim}funcid:int{$this->csv_delim}endlineno:int{$this->csv_delim}name{$this->csv_delim}doccomment\n");
       fwrite( $this->rhandle, ":START_ID{$this->csv_delim}:END_ID{$this->csv_delim}:TYPE\n");
     }
   }
@@ -100,11 +100,14 @@ class CSVExporter {
    *                  parent node to learn the line number.
    * @param $childnum Indicates that this node is the $childnum'th
    *                  child of its parent node (starting at 0).
+   * @param $funcid   If the AST to be exported is part of a function,
+   *                  the node id of that function.
+   * 
    * @return The root node index of the exported AST (i.e., the value
    *         of $this->nodecount at the point in time where this
    *         function was called.)
    */
-  public function export( $ast, $nodeline = 0, $childnum = 0) : int {
+  public function export( $ast, $nodeline = 0, $childnum = 0, $funcid = null) : int {
 
     // (1) if $ast is an AST node, print info and recurse
     // An instance of ast\Node declares:
@@ -138,10 +141,19 @@ class CSVExporter {
       }
 
       // store node, export all children and store the relationships
-      $rootnode = $this->store_node( $nodetype, $nodeflags, $nodeline, null, $childnum, $nodeendline, $nodename, $nodedoccomment);
+      $rootnode = $this->store_node( $nodetype, $nodeflags, $nodeline, null, $childnum, $funcid, $nodeendline, $nodename, $nodedoccomment);
+
+      // If this node is a function/method/closure declaration, set $funcid.
+      // Note that in particular, the decl node *itself* does not have $funcid set to its own id;
+      // this is intentional. The *declaration* of a function/method/closure itself is part of the
+      // control flow of the outer scope: e.g., a closure declaration is part of the control flow
+      // of the function it is declared in, or a function/method declaration is part of the control flow
+      // of the pseudo-function representing the top-level code it is declared in.
+      if( $ast->kind === ast\AST_FUNC_DECL || $ast->kind === ast\AST_METHOD || $ast->kind === ast\AST_CLOSURE)
+	$funcid = $rootnode;
 
       foreach( $ast->children as $i => $child) {
-	$childnode = $this->export( $child, $nodeline, $i);
+	$childnode = $this->export( $child, $nodeline, $i, $funcid);
 	$this->store_rel( $rootnode, $childnode, "PARENT_OF");
       }
     }
@@ -154,7 +166,7 @@ class CSVExporter {
     else if( is_string( $ast)) {
 
       $nodetype = gettype( $ast); // should be string
-      $rootnode = $this->store_node( $nodetype, null, $nodeline, $this->quote_and_escape( $ast), $childnum);
+      $rootnode = $this->store_node( $nodetype, null, $nodeline, $this->quote_and_escape( $ast), $childnum, $funcid);
     }
 
     // (3) If it a plain value and more precisely null, there's no corresponding code per se, so we just print the type.
@@ -166,7 +178,7 @@ class CSVExporter {
     else if( $ast === null) {
 
       $nodetype = gettype( $ast); // should be the string "NULL"
-      $rootnode = $this->store_node( $nodetype, null, $nodeline, null, $childnum);
+      $rootnode = $this->store_node( $nodetype, null, $nodeline, null, $childnum, $funcid);
     }
 
     // (4) if it is a plain value but not a string and not null, cast to string and store the result as $nodecode
@@ -183,7 +195,7 @@ class CSVExporter {
 
       $nodetype = gettype( $ast);
       $nodecode = (string) $ast;
-      $rootnode = $this->store_node( $nodetype, null, $nodeline, $nodecode, $childnum);
+      $rootnode = $this->store_node( $nodetype, null, $nodeline, $nodecode, $childnum, $funcid);
     }
 
     return $rootnode;
@@ -209,6 +221,7 @@ class CSVExporter {
    * @param lineno   The node's line number (mandatory)
    * @param code     The node code (optional)
    * @param childnum The child number of this node, i.e., how many older siblings it has ;-) (optional)
+   * @param funcid   The id of the function node that this node is a part of (optional)
    *
    * Additionally, only for decl nodes, i.e., function and class declarations (thus obviously optional):
    * @param endlineno  The node's last line number
@@ -217,9 +230,9 @@ class CSVExporter {
    *
    * @return The index of the stored node.
    */
-  private function store_node( $type, $flags, $lineno, $code = null, $childnum = null, $endlineno = null, $name = null, $doccomment = null) : int {
+  private function store_node( $type, $flags, $lineno, $code = null, $childnum = null, $funcid = null, $endlineno = null, $name = null, $doccomment = null) : int {
 
-    fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$flags}{$this->csv_delim}{$lineno}{$this->csv_delim}{$code}{$this->csv_delim}{$childnum}{$this->csv_delim}{$endlineno}{$this->csv_delim}{$name}{$this->csv_delim}{$doccomment}\n");
+    fwrite( $this->nhandle, "{$this->nodecount}{$this->csv_delim}{$type}{$this->csv_delim}{$flags}{$this->csv_delim}{$lineno}{$this->csv_delim}{$code}{$this->csv_delim}{$childnum}{$this->csv_delim}{$funcid}{$this->csv_delim}{$endlineno}{$this->csv_delim}{$name}{$this->csv_delim}{$doccomment}\n");
 
     // return the current node index, *then* increment it
     return $this->nodecount++;
@@ -236,7 +249,7 @@ class CSVExporter {
    */
   public function store_filenode( $filename) : int {
 
-    return $this->store_node( self::FILE, null, null, null, null, null, $this->quote_and_escape( $filename), null);
+    return $this->store_node( self::FILE, null, null, null, null, null, null, $this->quote_and_escape( $filename), null);
   }
 
   /**
@@ -250,7 +263,7 @@ class CSVExporter {
    */
   public function store_dirnode( $filename) : int {
 
-    return $this->store_node( self::DIR, null, null, null, null, null, $this->quote_and_escape( $filename), null);
+    return $this->store_node( self::DIR, null, null, null, null, null, null, $this->quote_and_escape( $filename), null);
   }
 
   /*
