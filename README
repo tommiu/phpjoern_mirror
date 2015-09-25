@@ -161,6 +161,9 @@ $ unzip batch_importer_22.zip
 Make sure that the version of batch-importer matches the version of
 the Neo4J database (2.2 in the above example).
 
+Note: for 2.1:
+$ curl -O https://dl.dropboxusercontent.com/u/14493611/batch_importer_21.zip
+
 In the following, let $JEXP_HOME be the newly created directory batch-import/.
 
 Extracting the ZIP file creates a directory $JEXP_HOME/lib/ with the necessary JAR files.
